@@ -1,7 +1,7 @@
 {
-  "name": "SayBack — Luyện phát âm tiếng Anh",
+  "name": "SayBack — Học và luyện phát âm tiếng Anh",
   "short_name": "SayBack",
-  "description": "Luyện phát âm tiếng Anh với từ và câu của riêng bạn.",
+  "description": "Thư viện học theo cấp độ và luyện phát âm với từ, câu của riêng bạn.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

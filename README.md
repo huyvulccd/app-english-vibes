@@ -4,6 +4,14 @@ Web tĩnh để luyện phát âm tiếng Anh với danh sách từ và câu do 
 
 Trang GitHub Pages: <https://huyvulccd.github.io/app-english-vibes/>.
 
+## Thư viện học New English File
+
+Mở `course.html` từ trang chính để duyệt danh mục gồm 5.881 tệp theo sáu cấp độ, từ Beginner đến Advanced. Thư viện có các phần Sách & tài liệu, Nghe, Phát âm, Từ vựng, Ngữ pháp, Giao tiếp, Chính tả, Kiểm tra và CD-ROM & tệp khác. Có thể tìm theo tên tệp hoặc đường dẫn, đánh dấu đã học và tiếp tục mục gần đây; tiến độ được lưu trong `localStorage`.
+
+Để đọc PDF hoặc nghe MP3 từ bộ tài liệu trên máy, nhấn **Chọn thư mục học liệu** và chọn `SOURCE/extracted/New-english-file`. Trên Chrome/Edge, quyền đọc thư mục có thể được lưu bằng IndexedDB; trình duyệt khác dùng trình chọn thư mục và cần chọn lại sau khi tải trang. Web chỉ đọc tệp đã chọn, không tải nội dung của thư mục lên máy chủ. Các tệp CD-ROM cũ như SWF, EXE và NRG được liệt kê để tải về; chúng chưa được chuyển thành bài tập web.
+
+`course-catalog.json` được tạo từ toàn bộ học liệu bằng `node scripts/build-course-catalog.mjs`. Thư mục `SOURCE/` không nằm trong Git. Có thể cấu hình nguồn HTTPS cho từng cấp độ và liên kết tải trọn gói trong `course-sources.json` khi có nơi lưu trữ học liệu được phép phân phối. GitHub Pages giới hạn trang xuất bản ở 1 GiB nên không thể chứa nguyên bộ 3,34 GiB trong trang này.
+
 ## Sử dụng
 
 1. Mở trang GitHub Pages của dự án (hoặc chạy các tệp trong thư mục bằng một máy chủ tĩnh khi phát triển).

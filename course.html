@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f5ef" />
+    <meta name="description" content="Thư viện học New English File theo sáu cấp độ: sách, nghe, phát âm, ngữ pháp, từ vựng và bài tập." />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./course.css" />
+    <title>Thư viện học | SayBack</title>
+  </head>
+  <body>
+    <header class="course-header">
+      <div class="header-inner">
+        <a class="brand" href="./index.html" aria-label="SayBack, về trang luyện phát âm">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span><strong>SayBack</strong><small>Học tiếng Anh theo cách của bạn</small></span>
+        </a>
+        <nav aria-label="Điều hướng chính">
+          <a class="nav-link" href="./index.html">Luyện phát âm</a>
+          <a class="nav-link active" href="./course.html" aria-current="page">Thư viện học</a>
+        </nav>
+        <button id="choose-folder" class="button button-primary" type="button">Chọn thư mục học liệu</button>
+        <input id="folder-fallback" type="file" webkitdirectory directory multiple hidden />
+      </div>
+    </header>
+
+    <div class="course-shell">
+      <section class="course-hero">
+        <div>
+          <span class="eyebrow">NEW ENGLISH FILE · 6 CẤP ĐỘ</span>
+          <h1>Một thư viện để <em>học mỗi ngày.</em></h1>
+          <p>Chọn cấp độ, mở sách, nghe từng track và đánh dấu tiến độ. Thư viện ghi nhớ những mục bạn đã học trên trình duyệt này.</p>
+          <div class="hero-actions">
+            <button id="continue-button" class="button button-dark" type="button" hidden>Tiếp tục mục gần đây <span aria-hidden="true">↗</span></button>
+            <a class="button button-light" href="./index.html">Luyện nói với micro <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+        <div class="hero-card" aria-label="Thống kê thư viện">
+          <span class="hero-card-symbol" aria-hidden="true">Aa</span>
+          <strong id="total-files">—</strong>
+          <span>tệp trong thư viện</span>
+          <div class="hero-card-rule"></div>
+          <strong id="completed-total" class="hero-card-progress">0</strong>
+          <span>mục đã đánh dấu học</span>
+        </div>
+      </section>
+
+      <div id="source-status" class="source-status" role="status" aria-live="polite">
+        <span class="status-light" aria-hidden="true"></span>
+        <span id="source-message">Đang tải danh mục học liệu…</span>
+        <button id="reconnect-button" type="button" hidden>Kết nối lại</button>
+      </div>
+
+      <div class="study-layout">
+        <aside class="study-sidebar" aria-label="Cấp độ học">
+          <div class="section-heading"><span class="eyebrow">LỘ TRÌNH</span><h2>Chọn cấp độ</h2></div>
+          <div id="level-list" class="level-list"></div>
+          <p class="sidebar-note">Tiến độ lưu trên trình duyệt này. Audio và PDF được mở khi bạn kết nối thư mục học liệu.</p>
+        </aside>
+
+        <main class="study-main">
+          <div class="section-heading library-heading">
+            <div><span class="eyebrow">THƯ VIỆN</span><h2 id="current-level-title">Đang tải…</h2></div>
+            <label class="search-box" for="course-search"><span aria-hidden="true">⌕</span><input id="course-search" type="search" placeholder="Tìm sách, bài, track…" autocomplete="off" /></label>
+          </div>
+          <div id="topic-tabs" class="topic-tabs" role="group" aria-label="Phần học"></div>
+          <p id="list-summary" class="list-summary"></p>
+
+          <div class="study-content">
+            <section class="files-panel" aria-label="Danh sách tài liệu">
+              <div id="file-list" class="file-list"></div>
+              <button id="load-more" class="button button-outline load-more" type="button" hidden>Xem thêm</button>
+            </section>
+
+            <section class="viewer-panel" aria-label="Nội dung học">
+              <div id="viewer-empty" class="viewer-empty">
+                <div class="viewer-symbol" aria-hidden="true">▶</div>
+                <h3>Chọn một mục để bắt đầu</h3>
+                <p>Sách mở ngay trong web. Audio có thể phát chậm hoặc nhanh để bạn nghe lại.</p>
+              </div>
+              <div id="viewer-content" hidden>
+                <div class="viewer-heading">
+                  <span id="viewer-kind" class="viewer-kind"></span>
+                  <h3 id="viewer-title"></h3>
+                  <p id="viewer-path"></p>
+                </div>
+                <div id="asset-message" class="asset-message" hidden></div>
+                <div id="pdf-wrap" class="pdf-wrap" hidden><iframe id="pdf-viewer" title="Đọc tài liệu PDF" loading="lazy"></iframe></div>
+                <div id="audio-wrap" class="audio-wrap" hidden>
+                  <span class="audio-icon" aria-hidden="true">♫</span>
+                  <audio id="course-audio" controls preload="metadata"></audio>
+                  <div class="audio-options">
+                    <label for="playback-speed">Tốc độ <select id="playback-speed"><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option></select></label>
+                    <label for="repeat-audio"><input id="repeat-audio" type="checkbox" /> Lặp lại</label>
+                  </div>
+                </div>
+                <div class="viewer-actions">
+                  <button id="mark-complete" class="button button-primary" type="button">Đánh dấu đã học</button>
+                  <a id="download-asset" class="button button-outline" href="#" hidden>Tải tệp</a>
+                </div>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+    <script type="module" src="./course.js"></script>
+  </body>
+</html>

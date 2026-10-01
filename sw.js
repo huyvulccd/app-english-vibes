@@ -1,7 +1,13 @@
-const CACHE_NAME = "sayback-v2";
+const CACHE_NAME = "sayback-v3";
 const CORE = [
   "./",
   "./index.html",
+  "./course.html",
+  "./course.css",
+  "./course.js",
+  "./course-model.mjs",
+  "./course-catalog.json",
+  "./course-sources.json",
   "./style.css",
   "./app.js",
   "./research-parser.mjs",
@@ -36,9 +42,11 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
   if (
     event.request.method !== "GET" ||
-    new URL(event.request.url).origin !== self.location.origin
+    url.origin !== self.location.origin ||
+    !CORE.some((path) => url.pathname === new URL(path, self.registration.scope).pathname)
   )
     return;
   event.respondWith(
