@@ -1,0 +1,18 @@
+{
+  "name": "SayBack — Luyện phát âm tiếng Anh",
+  "short_name": "SayBack",
+  "description": "Luyện phát âm tiếng Anh với từ và câu của riêng bạn.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f5ef",
+  "theme_color": "#f7f5ef",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
