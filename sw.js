@@ -1,9 +1,10 @@
-const CACHE_NAME = "sayback-v1";
+const CACHE_NAME = "sayback-v2";
 const CORE = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
+  "./research-parser.mjs",
   "./icon.svg",
   "./manifest.webmanifest",
 ];

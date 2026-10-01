@@ -613,6 +613,130 @@ textarea {
   grid-template-columns: 1fr 1fr;
   gap: 17px 14px;
 }
+.batch-tools {
+  padding: 11px 2px 0;
+}
+.batch-tools .button {
+  background: #f8fbf1;
+}
+.batch-progress {
+  margin: 8px 3px 0;
+  color: #6b806e;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.research-panel {
+  margin-top: 23px;
+  border: 1px solid #dfe9d6;
+  border-radius: 13px;
+  background: #fbfdf7;
+}
+.research-panel > summary {
+  padding: 15px 17px;
+  color: #365940;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.research-panel[open] > summary {
+  border-bottom: 1px solid #e5ecde;
+}
+.research-content {
+  padding: 15px 17px 17px;
+}
+.research-help {
+  color: #7f8d80;
+  font-size: 11px;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+.research-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 15px;
+  margin-bottom: 17px;
+  font-size: 11px;
+}
+.research-links a {
+  color: #426e4b;
+  font-weight: 750;
+  text-decoration: none;
+}
+.research-links a:hover {
+  text-decoration: underline;
+}
+#research-text,
+.preview-row input[type="text"],
+.preview-row textarea {
+  width: 100%;
+  border: 1px solid #dfe7d9;
+  border-radius: 9px;
+  background: #fff;
+  color: #2b4134;
+  padding: 10px 11px;
+  font-size: 12px;
+  line-height: 1.5;
+  outline: none;
+}
+#research-text:focus,
+.preview-row input[type="text"]:focus,
+.preview-row textarea:focus {
+  border-color: #8ba759;
+  box-shadow: 0 0 0 3px #dff0b8a8;
+}
+#research-text {
+  margin: 8px 0 11px;
+  min-height: 145px;
+}
+.research-preview {
+  border-top: 1px solid #e7ede1;
+  margin-top: 17px;
+  padding-top: 16px;
+}
+.preview-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+  align-items: center;
+  margin: 12px 0;
+}
+.preview-row > label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #405d46;
+  font-size: 12px;
+  font-weight: 750;
+}
+.preview-row input[type="checkbox"] {
+  accent-color: #3c704c;
+}
+.preview-row input[type="text"],
+.preview-row textarea {
+  grid-column: 1 / -1;
+}
+.ipa-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 5px 0 12px;
+}
+.ipa-options button {
+  border: 1px solid #d9e8ca;
+  border-radius: 8px;
+  background: #f1f8e8;
+  color: #3f6447;
+  padding: 7px 9px;
+  font-size: 11px;
+  text-align: left;
+}
+.ipa-options button:hover {
+  background: #e7f2d9;
+}
+.research-preview > .button {
+  margin-top: 5px;
+}
 .source-row {
   display: flex;
   justify-content: space-between;

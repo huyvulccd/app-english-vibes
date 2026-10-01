@@ -1,3 +1,5 @@
+import { parseResearchText } from "./research-parser.mjs";
+
 const STORAGE_KEY = "sayback-items-v1";
 const IPA_CACHE_KEY = "sayback-ipa-v1";
 const $ = (selector) => document.querySelector(selector);
@@ -8,6 +10,8 @@ const ui = {
   searchInput: $("#search-input"),
   itemList: $("#item-list"),
   itemCount: $("#item-count"),
+  batchButton: $("#batch-lookup-button"),
+  batchProgress: $("#batch-progress"),
   empty: $("#empty-state"),
   detail: $("#detail-view"),
   detailType: $("#detail-type"),
@@ -26,6 +30,12 @@ const ui = {
   lookupNotice: $("#lookup-notice"),
   lookupButton: $("#lookup-button"),
   googleLink: $("#google-link"),
+  researchGoogleLink: $("#research-google-link"),
+  cambridgeLink: $("#cambridge-link"),
+  researchPanel: $("#research-panel"),
+  researchText: $("#research-text"),
+  researchPreview: $("#research-preview"),
+  ipaOptions: $("#ipa-options"),
   speakButton: $("#speak-button"),
   slowButton: $("#slow-button"),
   voiceHint: $("#voice-hint"),
@@ -51,6 +61,8 @@ const state = {
   recordingUrl: null,
   recordingLoadId: 0,
   toastTimer: null,
+  lookupPromises: new Map(),
+  batch: null,
 };
 
 function loadItems() {
@@ -70,6 +82,7 @@ function loadItems() {
         family: String(x.family || ""),
         example: String(x.example || ""),
         meaning: String(x.meaning || ""),
+        lookupAttemptedAt: Number(x.lookupAttemptedAt) || 0,
         createdAt: Number(x.createdAt) || Date.now(),
       }));
   } catch {
@@ -121,6 +134,7 @@ function parseLine(line) {
     partOfSpeech: "",
     family: "",
     example: "",
+    lookupAttemptedAt: 0,
     createdAt: Date.now(),
   };
 }
@@ -158,6 +172,9 @@ function addLines(raw) {
   render();
   scrollToDetailOnMobile();
   toast(`Đã thêm ${added.length} mục vào danh sách.`);
+  const pending = added.filter(needsLookup);
+  if (navigator.onLine && pending.length)
+    startBatchLookup(pending.map((item) => item.id));
 }
 
 function scrollToDetailOnMobile() {
@@ -178,6 +195,7 @@ function updateFilterButtons() {
 
 function renderList() {
   ui.itemCount.textContent = String(state.items.length);
+  ui.batchButton.disabled = !state.items.length && !state.batch;
   ui.itemList.replaceChildren();
   const items = state.items.filter(
     (item) =>
@@ -247,11 +265,13 @@ function renderDetail() {
   ui.ipaHint.textContent =
     item.type === "sentence" ? "từng từ, chỉ mang tính tham khảo" : "";
   ui.practiceText.textContent = item.text;
-  const search =
-    item.type === "word"
-      ? `${item.text} pronunciation meaning word family`
-      : `${item.text} pronunciation translation Vietnamese`;
-  ui.googleLink.href = `https://www.google.com/search?q=${encodeURIComponent(search)}`;
+  updateResearchLinks(item);
+  ui.lookupButton.disabled = state.lookupPromises.has(item.id);
+  ui.researchPanel.open = false;
+  ui.researchText.value = "";
+  ui.researchPreview.hidden = true;
+  ui.ipaOptions.hidden = true;
+  ui.ipaOptions.replaceChildren();
   hideNotice();
   ui.recordStatus.textContent =
     "Sẵn sàng ghi âm. Hãy nói rõ ràng trong môi trường yên tĩnh.";
@@ -279,16 +299,23 @@ function updateField(key, value) {
   if (key === "text") {
     ui.detailTitle.textContent = value || "Chưa có nội dung";
     ui.practiceText.textContent = value;
-    const search =
-      item.type === "word"
-        ? `${value} pronunciation meaning word family`
-        : `${value} pronunciation translation Vietnamese`;
-    ui.googleLink.href = `https://www.google.com/search?q=${encodeURIComponent(search)}`;
+    updateResearchLinks(item);
   }
   if (key === "ipa")
     ui.detailSubtitle.textContent =
       value || "Thêm phiên âm IPA để dễ theo dõi cách đọc";
   if (key === "text" || key === "ipa" || key === "meaning") renderList();
+}
+
+function updateResearchLinks(item) {
+  const search =
+    item.type === "word"
+      ? `${item.text} pronunciation IPA meaning Vietnamese word family Cambridge`
+      : `${item.text} IPA pronunciation translation Vietnamese`;
+  const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(search)}`;
+  ui.googleLink.href = googleUrl;
+  ui.researchGoogleLink.href = googleUrl;
+  ui.cambridgeLink.href = `https://dictionary.cambridge.org/search/english/direct/?q=${encodeURIComponent(item.text)}`;
 }
 
 function toast(message) {
@@ -358,6 +385,20 @@ async function getPronunciation(term) {
   return (await getWordMetadata(term)).ipa;
 }
 
+async function mapWithConcurrency(values, limit, task) {
+  const results = new Array(values.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, values.length) }, async () => {
+      while (next < values.length) {
+        const index = next++;
+        results[index] = await task(values[index], index);
+      }
+    }),
+  );
+  return results;
+}
+
 async function getSentenceIpa(sentence) {
   const words = sentence.match(/[A-Za-z]+(?:['’][A-Za-z]+)*/g) || [];
   if (!words.length) return "";
@@ -374,18 +415,16 @@ async function getSentenceIpa(sentence) {
   } catch {
     /* Cache is optional. */
   }
-  const results = await Promise.all(
-    unique.map(async (word) => {
-      if (cache[word]) return [word, cache[word]];
-      try {
-        return [word, await getPronunciation(word)];
-      } catch {
-        return [word, ""];
-      }
-    }),
-  );
+  const results = await mapWithConcurrency(unique, 4, async (word) => {
+    if (cache[word]) return [word, cache[word]];
+    try {
+      return [word, await getPronunciation(word)];
+    } catch {
+      return [word, ""];
+    }
+  });
   const found = Object.fromEntries(results);
-  if (Object.values(found).every((value) => !value)) return "";
+  if (words.some((word) => !found[word.toLocaleLowerCase("en")])) return "";
   for (const [word, ipa] of results) if (ipa) cache[word] = ipa;
   try {
     localStorage.setItem(IPA_CACHE_KEY, JSON.stringify(cache));
@@ -405,9 +444,9 @@ async function translateToVietnamese(text) {
   return String(result.responseData?.translatedText || "").trim();
 }
 
-async function lookupWord(text) {
+async function lookupWord(text, timeoutMs = 18000) {
   const url = `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(text)}`;
-  const rows = await fetchJSON(url, 25000);
+  const rows = await fetchJSON(url, timeoutMs);
   const entry =
     rows.find(
       (row) =>
@@ -449,58 +488,305 @@ async function suggestFamily(text) {
     .join(", ");
 }
 
-async function lookupCurrent() {
-  const item = currentItem();
-  if (!item) return;
-  if (!navigator.onLine) {
-    showNotice(
-      "Cần mạng để tra cứu mới. Các mục đã lưu vẫn dùng được ngoại tuyến.",
-      true,
-    );
-    return;
-  }
-  const id = item.id;
-  const text = item.text.trim();
-  if (!text) {
-    showNotice("Hãy nhập nội dung tiếng Anh trước khi tra cứu.", true);
-    return;
-  }
-  ui.lookupButton.disabled = true;
-  showNotice("Đang tra cứu. Các thông tin bạn đã nhập sẽ được giữ nguyên.");
-  const jobs = [translateToVietnamese(text).then((meaning) => ({ meaning }))];
-  if (item.type === "word") {
-    jobs.push(lookupWord(text));
-    jobs.push(suggestFamily(text).then((family) => ({ family })));
-    jobs.push(getWordMetadata(text));
-  } else jobs.push(getSentenceIpa(text).then((ipa) => ({ ipa })));
-  const results = await Promise.allSettled(jobs);
-  const target = state.items.find((x) => x.id === id);
-  if (!target) {
-    ui.lookupButton.disabled = false;
-    return;
-  }
+function needsLookup(item) {
+  return (
+    !item.ipa ||
+    !item.meaning ||
+    (item.type === "word" &&
+      (!item.partOfSpeech || !item.family || !item.example))
+  );
+}
+
+function applyLookupResult(id, text, type, fields) {
+  const item = state.items.find((entry) => entry.id === id);
+  if (!item || item.text.trim() !== text || item.type !== type) return 0;
+  const inputs = {
+    ipa: ui.fieldIpa,
+    partOfSpeech: ui.fieldPartOfSpeech,
+    family: ui.fieldFamily,
+    example: ui.fieldExample,
+    meaning: ui.fieldMeaning,
+  };
   let filled = 0;
-  for (const result of results) {
-    if (result.status !== "fulfilled") continue;
-    for (const [key, value] of Object.entries(result.value)) {
-      if (!target[key] && value) {
-        target[key] = value;
-        filled++;
-      }
+  for (const [key, raw] of Object.entries(fields)) {
+    const value = String(raw || "").trim();
+    if (!inputs[key] || !value || String(item[key] || "").trim()) continue;
+    item[key] = value;
+    filled++;
+    if (state.selectedId === id) {
+      inputs[key].value = value;
+      if (key === "ipa") ui.detailSubtitle.textContent = value;
     }
   }
-  saveItems();
-  if (state.selectedId === id) {
-    renderList();
-    renderDetail();
-    showNotice(
-      filled
-        ? `Đã điền ${filled} trường còn trống. Hãy kiểm tra lại nghĩa, IPA và word family trước khi học.`
-        : "Chưa tìm được thông tin mới. Bạn có thể nhập trực tiếp hoặc dùng liên kết Google bên dưới.",
-      !filled,
-    );
+  if (filled) {
+    saveItems();
+    if (state.selectedId === id) renderList();
   }
-  ui.lookupButton.disabled = false;
+  return filled;
+}
+
+function lookupItem(id, batch = false) {
+  if (state.lookupPromises.has(id)) return state.lookupPromises.get(id);
+  const item = state.items.find((entry) => entry.id === id);
+  if (!item || !item.text.trim() || !needsLookup(item))
+    return Promise.resolve({ filled: 0, success: 0 });
+  if (!navigator.onLine) {
+    if (state.selectedId === id)
+      showNotice(
+        "Cần mạng để tra cứu mới. Dữ liệu đã lưu vẫn dùng được ngoại tuyến.",
+        true,
+      );
+    return Promise.resolve({ filled: 0, success: 0 });
+  }
+  const text = item.text.trim();
+  const type = item.type;
+  const promise = (async () => {
+    let filled = 0;
+    let success = 0;
+    if (state.selectedId === id)
+      showNotice(
+        "Đang tra cứu; mỗi kết quả sẽ hiện và được lưu ngay khi nhận được.",
+      );
+    const tasks = [
+      () => translateToVietnamese(text).then((meaning) => ({ meaning })),
+    ];
+    if (type === "word") {
+      tasks.push(() => getWordMetadata(text));
+      tasks.push(() => suggestFamily(text).then((family) => ({ family })));
+      tasks.push(() => lookupWord(text, batch ? 7000 : 18000));
+    } else tasks.push(() => getSentenceIpa(text).then((ipa) => ({ ipa })));
+    try {
+      await Promise.all(
+        tasks.map(async (task) => {
+          try {
+            const fields = await task();
+            success++;
+            filled += applyLookupResult(id, text, type, fields);
+            if (state.selectedId === id && filled)
+              showNotice(`Đã điền ${filled} ô; đang chờ các nguồn còn lại…`);
+          } catch {
+            /* One source can fail without blocking the others. */
+          }
+        }),
+      );
+      const target = state.items.find((entry) => entry.id === id);
+      if (
+        target &&
+        target.text.trim() === text &&
+        target.type === type &&
+        success
+      ) {
+        target.lookupAttemptedAt = Date.now();
+        saveItems();
+      }
+      if (state.selectedId === id)
+        showNotice(
+          filled
+            ? `Đã lưu ${filled} ô mới. Bạn có thể kiểm tra và sửa nội dung bên dưới.`
+            : "Không có ô trống nào được điền. Bạn có thể dán kết quả Google AI/Cambridge để chọn thủ công.",
+          !filled,
+        );
+      return { filled, success };
+    } finally {
+      state.lookupPromises.delete(id);
+      if (state.selectedId === id) ui.lookupButton.disabled = false;
+    }
+  })();
+  state.lookupPromises.set(id, promise);
+  if (state.selectedId === id) ui.lookupButton.disabled = true;
+  return promise;
+}
+
+function updateBatchProgress(batch) {
+  ui.batchProgress.hidden = false;
+  ui.batchProgress.textContent = `Đã tra ${batch.done}/${batch.total} mục, điền ${batch.filled} ô. Kết quả nhận được đã lưu vào trình duyệt.`;
+  ui.batchButton.textContent = batch.cancelled ? "Đang dừng…" : "Dừng tra cứu";
+  ui.batchButton.disabled = batch.cancelled;
+}
+
+function startBatchLookup(ids) {
+  if (!navigator.onLine) {
+    toast("Cần mạng để tra cứu danh sách.");
+    return;
+  }
+  const eligible = ids.filter((id) => {
+    const item = state.items.find((entry) => entry.id === id);
+    return item && needsLookup(item);
+  });
+  if (!eligible.length) {
+    if (!state.batch) toast("Không có ô trống cần tra cứu.");
+    return;
+  }
+  if (state.batch) {
+    if (state.batch.cancelled) return;
+    for (const id of eligible) {
+      if (state.batch.scheduled.has(id)) continue;
+      state.batch.scheduled.add(id);
+      state.batch.queue.push(id);
+      state.batch.total++;
+    }
+    updateBatchProgress(state.batch);
+    return;
+  }
+  const batch = {
+    queue: [...eligible],
+    scheduled: new Set(eligible),
+    done: 0,
+    filled: 0,
+    total: eligible.length,
+    cancelled: false,
+  };
+  state.batch = batch;
+  updateBatchProgress(batch);
+  const worker = async () => {
+    while (!batch.cancelled) {
+      const id = batch.queue.shift();
+      if (!id) break;
+      try {
+        const result = await lookupItem(id, true);
+        batch.filled += result.filled;
+      } catch {
+        /* Continue with the next item if one lookup fails unexpectedly. */
+      } finally {
+        batch.done++;
+        updateBatchProgress(batch);
+      }
+    }
+  };
+  Promise.all(
+    Array.from({ length: Math.min(3, eligible.length) }, worker),
+  ).finally(() => {
+    if (state.batch !== batch) return;
+    state.batch = null;
+    ui.batchButton.textContent = "✦ Tra cứu toàn bộ danh sách";
+    ui.batchButton.disabled = !state.items.length;
+    ui.batchProgress.textContent = batch.cancelled
+      ? `Đã dừng sau ${batch.done}/${batch.total} mục, điền ${batch.filled} ô. Mọi kết quả đã nhận vẫn được lưu.`
+      : `Đã tra xong ${batch.done} mục, điền ${batch.filled} ô. Kết quả sẽ còn khi mở lại web.`;
+  });
+}
+
+function lookupCurrent() {
+  const item = currentItem();
+  if (!item) return;
+  if (!needsLookup(item)) {
+    showNotice(
+      "Các ô đã có dữ liệu. Hãy xóa ô muốn tra lại hoặc dùng phần dán kết quả để thay bằng dữ liệu bạn chọn.",
+    );
+    return;
+  }
+  lookupItem(item.id);
+}
+
+function previewInput(key) {
+  return ui.researchPreview.querySelector(`[data-preview-field="${key}"]`);
+}
+
+function previewCheckbox(key) {
+  return ui.researchPreview.querySelector(`[data-include-field="${key}"]`);
+}
+
+function setPreviewValue(key, value) {
+  previewInput(key).value = value || "";
+  previewCheckbox(key).checked = Boolean(value);
+}
+
+function showResearchPreview() {
+  const item = currentItem();
+  if (!item) return;
+  ui.researchPreview.hidden = false;
+  ui.researchPreview.querySelectorAll("[data-word-only]").forEach((row) => {
+    row.hidden = item.type !== "word";
+  });
+}
+
+function parseResearch() {
+  const item = currentItem();
+  if (!item) return;
+  if (!ui.researchText.value.trim()) {
+    toast("Hãy dán nội dung tra cứu trước.");
+    return;
+  }
+  const result = parseResearchText(ui.researchText.value, item.type);
+  showResearchPreview();
+  for (const [key, value] of Object.entries(result.values))
+    setPreviewValue(key, value);
+  ui.ipaOptions.replaceChildren();
+  for (const [label, value] of Object.entries(result.ipaOptions)) {
+    if (!value) continue;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = `${label.toUpperCase()}: ${value}`;
+    button.addEventListener("click", () => setPreviewValue("ipa", value));
+    ui.ipaOptions.append(button);
+  }
+  ui.ipaOptions.hidden = !ui.ipaOptions.childElementCount;
+  const count = Object.values(result.values).filter(Boolean).length;
+  toast(
+    count
+      ? `Đã nhận diện ${count} ô. Hãy kiểm tra trước khi lưu.`
+      : "Chưa nhận ra trường nào. Bạn có thể bôi đen từng đoạn và gán vào ô cần điền.",
+  );
+}
+
+function pickSelectedText(key) {
+  const start = ui.researchText.selectionStart;
+  const end = ui.researchText.selectionEnd;
+  let value = ui.researchText.value.slice(start, end).trim();
+  if (!value) {
+    toast("Hãy bôi đen đoạn cần lấy trong ô nội dung sao chép.");
+    return;
+  }
+  if (key === "ipa") {
+    const ipa = value.match(/\/[^/\r\n]+\//);
+    value = normalizeIpa(ipa ? ipa[0] : value);
+  }
+  showResearchPreview();
+  setPreviewValue(key, value);
+  previewInput(key).focus();
+}
+
+function applyResearch() {
+  const item = currentItem();
+  if (!item) return;
+  let count = 0;
+  for (const key of ["partOfSpeech", "ipa", "family", "example", "meaning"]) {
+    if (item.type === "sentence" && !["ipa", "meaning"].includes(key)) continue;
+    if (!previewCheckbox(key).checked) continue;
+    const value = previewInput(key).value.trim();
+    if (!value) continue;
+    item[key] = key === "ipa" ? normalizeIpa(value) : value;
+    count++;
+  }
+  if (!count) {
+    toast("Hãy đánh dấu ít nhất một ô có giá trị.");
+    return;
+  }
+  saveItems();
+  render();
+  showNotice(
+    `Đã điền và lưu ${count} ô bạn chọn. Dữ liệu sẽ còn khi mở lại web.`,
+  );
+  toast(`Đã lưu ${count} ô.`);
+}
+
+async function copyResearchPrompt() {
+  const item = currentItem();
+  if (!item) return;
+  const prompt =
+    item.type === "word"
+      ? `Hãy tra từ tiếng Anh "${item.text}" và trả lời ngắn theo đúng mẫu sau. Chỉ dùng thông tin chắc chắn; không biết thì để trống.\nLoại từ: \nIPA UK: /.../\nIPA US: /.../\nNghĩa tiếng Việt: \nWord family: \nVí dụ: `
+      : `Hãy tra câu tiếng Anh "${item.text}" và trả lời ngắn theo đúng mẫu sau. Chỉ dùng thông tin chắc chắn; không biết thì để trống.\nIPA: /.../\nNghĩa tiếng Việt: `;
+  try {
+    await navigator.clipboard.writeText(prompt);
+    toast(
+      "Đã chép mẫu yêu cầu. Hãy dán vào Google AI rồi mang kết quả về đây.",
+    );
+  } catch {
+    ui.researchText.value = prompt;
+    ui.researchText.select();
+    toast("Đã chọn mẫu yêu cầu; nhấn Ctrl+C để sao chép.");
+  }
 }
 
 function getEnglishVoice() {
@@ -719,6 +1005,7 @@ async function importItems(file) {
         family: String(raw.family || "").slice(0, 500),
         example: String(raw.example || "").slice(0, 1000),
         meaning: String(raw.meaning || "").slice(0, 1000),
+        lookupAttemptedAt: 0,
         createdAt: Date.now(),
       });
     }
@@ -731,6 +1018,9 @@ async function importItems(file) {
     saveItems();
     render();
     toast(`Đã nhập ${added.length} mục.`);
+    const pending = added.filter(needsLookup);
+    if (navigator.onLine && pending.length)
+      startBatchLookup(pending.map((item) => item.id));
   } catch (error) {
     toast(error.message || "Không đọc được tệp JSON.");
   }
@@ -811,6 +1101,25 @@ ui.fieldMeaning.addEventListener("input", (event) =>
   updateField("meaning", event.target.value),
 );
 ui.lookupButton.addEventListener("click", lookupCurrent);
+ui.batchButton.addEventListener("click", () => {
+  if (state.batch) {
+    state.batch.cancelled = true;
+    updateBatchProgress(state.batch);
+    return;
+  }
+  startBatchLookup(state.items.filter(needsLookup).map((item) => item.id));
+});
+$("#parse-research-button").addEventListener("click", parseResearch);
+$("#apply-research-button").addEventListener("click", applyResearch);
+$("#copy-prompt-button").addEventListener("click", copyResearchPrompt);
+ui.researchPreview.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-pick-field]");
+  if (button) pickSelectedText(button.dataset.pickField);
+});
+ui.researchPreview.addEventListener("input", (event) => {
+  const key = event.target.dataset.previewField;
+  if (key) previewCheckbox(key).checked = Boolean(event.target.value.trim());
+});
 ui.speakButton.addEventListener("click", () => speak(1));
 ui.slowButton.addEventListener("click", () => speak(0.75));
 ui.recordButton.addEventListener("click", toggleRecording);
@@ -832,7 +1141,13 @@ $("#import-file").addEventListener("change", async (event) => {
   if (file) await importItems(file);
   event.target.value = "";
 });
-window.addEventListener("online", updateConnection);
+window.addEventListener("online", () => {
+  updateConnection();
+  const pending = state.items.filter(
+    (item) => !item.lookupAttemptedAt && needsLookup(item),
+  );
+  if (pending.length) startBatchLookup(pending.map((item) => item.id));
+});
 window.addEventListener("offline", updateConnection);
 if ("speechSynthesis" in window)
   speechSynthesis.addEventListener("voiceschanged", updateVoiceHint);
@@ -845,3 +1160,8 @@ state.selectedId = state.items[0]?.id || null;
 updateConnection();
 updateVoiceHint();
 render();
+const pendingOnStart = state.items.filter(
+  (item) => !item.lookupAttemptedAt && needsLookup(item),
+);
+if (navigator.onLine && pendingOnStart.length)
+  startBatchLookup(pendingOnStart.map((item) => item.id));

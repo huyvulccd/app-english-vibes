@@ -59,6 +59,23 @@
           </button>
         </form>
 
+        <div class="batch-tools">
+          <button
+            id="batch-lookup-button"
+            class="button button-outline button-full"
+            type="button"
+          >
+            ✦ Tra cứu toàn bộ danh sách
+          </button>
+          <p
+            id="batch-progress"
+            class="batch-progress"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></p>
+        </div>
+
         <div class="list-tools">
           <label class="search-box" for="search-input"
             ><span aria-hidden="true">⌕</span
@@ -217,9 +234,165 @@
                   ></textarea>
                 </label>
               </div>
+              <details id="research-panel" class="research-panel">
+                <summary>
+                  Dán kết quả Google AI / Cambridge để điền nhanh
+                </summary>
+                <div class="research-content">
+                  <p class="research-help">
+                    Mở nguồn tra cứu, sao chép phần hữu ích rồi dán bên dưới.
+                    Bạn có thể kiểm tra và chọn từng ô trước khi lưu.
+                  </p>
+                  <div class="research-links">
+                    <a
+                      id="research-google-link"
+                      href="https://www.google.com/search"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >Mở Google ↗</a
+                    >
+                    <a
+                      id="cambridge-link"
+                      href="https://dictionary.cambridge.org/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >Mở Cambridge ↗</a
+                    >
+                    <button
+                      id="copy-prompt-button"
+                      class="text-button"
+                      type="button"
+                    >
+                      Chép mẫu yêu cầu AI
+                    </button>
+                  </div>
+                  <label class="field field-wide" for="research-text"
+                    ><span>Nội dung sao chép</span></label
+                  >
+                  <textarea
+                    id="research-text"
+                    rows="7"
+                    placeholder="Dán kết quả tra cứu tại đây. Ví dụ: IPA US: /rɪˈpɑː.zɪ.tɔːr.i/&#10;Loại từ: noun&#10;Nghĩa: kho chứa, nơi lưu trữ..."
+                  ></textarea>
+                  <button
+                    id="parse-research-button"
+                    class="button button-light"
+                    type="button"
+                  >
+                    Nhận diện thông tin
+                  </button>
+                  <div id="research-preview" class="research-preview" hidden>
+                    <p class="research-help">
+                      Đánh dấu ô muốn điền. Có thể sửa giá trị hoặc bôi đen đoạn
+                      trong nội dung trên rồi nhấn “Lấy đoạn chọn”.
+                    </p>
+                    <div id="ipa-options" class="ipa-options" hidden></div>
+                    <div class="preview-row" data-word-only>
+                      <label
+                        ><input
+                          type="checkbox"
+                          data-include-field="partOfSpeech"
+                        />
+                        Loại từ</label
+                      >
+                      <button
+                        type="button"
+                        class="text-button pick-selection"
+                        data-pick-field="partOfSpeech"
+                      >
+                        Lấy đoạn chọn
+                      </button>
+                      <input
+                        type="text"
+                        data-preview-field="partOfSpeech"
+                        placeholder="noun, verb..."
+                      />
+                    </div>
+                    <div class="preview-row">
+                      <label
+                        ><input type="checkbox" data-include-field="ipa" />
+                        IPA</label
+                      >
+                      <button
+                        type="button"
+                        class="text-button pick-selection"
+                        data-pick-field="ipa"
+                      >
+                        Lấy đoạn chọn
+                      </button>
+                      <input
+                        type="text"
+                        data-preview-field="ipa"
+                        placeholder="/…/"
+                      />
+                    </div>
+                    <div class="preview-row" data-word-only>
+                      <label
+                        ><input type="checkbox" data-include-field="family" />
+                        Word family</label
+                      >
+                      <button
+                        type="button"
+                        class="text-button pick-selection"
+                        data-pick-field="family"
+                      >
+                        Lấy đoạn chọn
+                      </button>
+                      <input
+                        type="text"
+                        data-preview-field="family"
+                        placeholder="Các từ cùng họ"
+                      />
+                    </div>
+                    <div class="preview-row" data-word-only>
+                      <label
+                        ><input type="checkbox" data-include-field="example" />
+                        Câu ví dụ</label
+                      >
+                      <button
+                        type="button"
+                        class="text-button pick-selection"
+                        data-pick-field="example"
+                      >
+                        Lấy đoạn chọn
+                      </button>
+                      <textarea
+                        rows="2"
+                        data-preview-field="example"
+                        placeholder="Câu ví dụ tiếng Anh"
+                      ></textarea>
+                    </div>
+                    <div class="preview-row">
+                      <label
+                        ><input type="checkbox" data-include-field="meaning" />
+                        Nghĩa tiếng Việt</label
+                      >
+                      <button
+                        type="button"
+                        class="text-button pick-selection"
+                        data-pick-field="meaning"
+                      >
+                        Lấy đoạn chọn
+                      </button>
+                      <textarea
+                        rows="3"
+                        data-preview-field="meaning"
+                        placeholder="Nghĩa tiếng Việt"
+                      ></textarea>
+                    </div>
+                    <button
+                      id="apply-research-button"
+                      class="button button-primary button-full"
+                      type="button"
+                    >
+                      Điền và lưu các ô đã chọn
+                    </button>
+                  </div>
+                </div>
+              </details>
               <div class="source-row">
-                <span>Thiếu thông tin? Bạn có thể sửa trực tiếp.</span
-                ><a
+                <span>Thiếu thông tin? Bạn có thể sửa trực tiếp.</span>
+                <a
                   id="google-link"
                   href="https://www.google.com/search"
                   target="_blank"
