@@ -36,6 +36,7 @@ const ui = {
   completedTotal: $("#completed-total"),
   continueButton: $("#continue-button"),
   levelList: $("#level-list"),
+  packLink: $("#pack-link"),
   currentLevelTitle: $("#current-level-title"),
   search: $("#course-search"),
   topicTabs: $("#topic-tabs"),
@@ -65,7 +66,7 @@ const savedProgress = readStorage(PROGRESS_KEY, []);
 const state = {
   levels: [],
   entries: [],
-  sources: { levels: {}, packs: {} },
+  sources: { levels: {}, packs: {}, excludedExtensions: [] },
   level: localStorage.getItem(LEVEL_KEY) || "1.BEGINNER",
   topic: localStorage.getItem(TOPIC_KEY) || "all",
   query: "",
@@ -115,6 +116,12 @@ function renderLevels() {
     ui.levelList.append(button);
   }
   ui.currentLevelTitle.textContent = state.level === "all" ? "Tất cả cấp độ" : LEVEL_NAMES[state.level] || state.level;
+  const pack = state.sources.packs[state.level];
+  ui.packLink.hidden = !(typeof pack === "string" && /^https:\/\//.test(pack));
+  if (!ui.packLink.hidden) {
+    ui.packLink.href = pack;
+    ui.packLink.textContent = `Tải trọn bộ ${LEVEL_NAMES[state.level]} ↗`;
+  }
 }
 
 function renderTopics() {
@@ -208,6 +215,7 @@ async function resolveAsset(entry) {
     const url = URL.createObjectURL(localFile);
     return { url, local: true };
   }
+  if (state.sources.excludedExtensions.includes(entry.extension)) return null;
   const base = state.sources.levels[entry.level];
   if (typeof base === "string" && /^https:\/\//.test(base)) {
     const path = entry.path.split("/").slice(1).map(encodeURIComponent).join("/");
@@ -436,6 +444,7 @@ async function init() {
       const sources = await sourcesResponse.json();
       state.sources.levels = sources.levels || {};
       state.sources.packs = sources.packs || {};
+      state.sources.excludedExtensions = Array.isArray(sources.excludedExtensions) ? sources.excludedExtensions : [];
     }
     if (!state.levels.includes(state.level) && state.level !== "all") state.level = state.levels[0] || "all";
     if (!TOPICS.some(([topic]) => topic === state.topic)) state.topic = "all";
