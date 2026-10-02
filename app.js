@@ -1160,6 +1160,18 @@ state.selectedId = state.items[0]?.id || null;
 updateConnection();
 updateVoiceHint();
 render();
+const practiceFromLesson = new URLSearchParams(location.search).get("practice");
+if (practiceFromLesson) {
+  const text = normalizeText(practiceFromLesson.replace(/\|/g, "/")).slice(0, 300);
+  if (text) {
+    const existing = state.items.find((item) => item.type === "sentence" && item.text.toLocaleLowerCase("en") === text.toLocaleLowerCase("en"));
+    if (existing) {
+      state.selectedId = existing.id;
+      render();
+    } else addLines(`sentence: ${text}`);
+  }
+  history.replaceState(null, "", `${location.pathname}${location.hash}`);
+}
 const pendingOnStart = state.items.filter(
   (item) => !item.lookupAttemptedAt && needsLookup(item),
 );

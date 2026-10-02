@@ -1,7 +1,14 @@
-const CACHE_NAME = "sayback-v3";
+const CACHE_NAME = "sayback-v5";
 const CORE = [
   "./",
   "./index.html",
+  "./study.html",
+  "./study.css",
+  "./study-extras.css",
+  "./study.js",
+  "./lesson-data/catalog.json",
+  "./lesson-audio.json",
+  "./lesson-audio-sources.json",
   "./course.html",
   "./course.css",
   "./course.js",
@@ -43,10 +50,13 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
+  const withinStudyAssets = url.pathname.startsWith(new URL("./course-pages/", self.registration.scope).pathname) ||
+    url.pathname.startsWith(new URL("./lesson-data/", self.registration.scope).pathname);
+  const withinCore = CORE.some((path) => url.pathname === new URL(path, self.registration.scope).pathname);
   if (
     event.request.method !== "GET" ||
     url.origin !== self.location.origin ||
-    !CORE.some((path) => url.pathname === new URL(path, self.registration.scope).pathname)
+    (!withinCore && !withinStudyAssets)
   )
     return;
   event.respondWith(

@@ -1,43 +1,43 @@
 # SayBack
 
-Web tĩnh để luyện phát âm tiếng Anh với danh sách từ và câu do người dùng tự nhập. Không cần tài khoản, máy chủ ứng dụng hoặc khóa API.
+Web học tiếng Anh và luyện phát âm chạy trực tiếp trên GitHub Pages, không cần máy chủ ứng dụng hay tài khoản. Mở tại <https://huyvulccd.github.io/app-english-vibes/>.
 
-Trang GitHub Pages: <https://huyvulccd.github.io/app-english-vibes/>.
+## Học theo giáo trình
 
-## Thư viện học New English File
+Trang [`study.html`](study.html) chuyển nội dung từ 203 PDF New English File thành 3.370 trang học cho sáu cấp độ Beginner, Elementary, Pre-Intermediate, Intermediate, Upper-Intermediate và Advanced. Trang hiển thị ảnh WebP của bài học; văn bản trích xuất và OCR hỗ trợ tìm trong sách, chọn đoạn để luyện phát âm, nhận diện gợi ý bài tập và lưu câu trả lời. Có thể nghe 5.206 track, giảm tốc độ, lặp lại, ghi âm và nghe lại giọng mình. Tiến độ từng trang, ghi chú, câu trả lời và trang gần nhất lưu trong `localStorage` của trình duyệt.
 
-Mở `course.html` từ trang chính để duyệt danh mục gồm 5.881 tệp theo sáu cấp độ, từ Beginner đến Advanced. Thư viện có các phần Sách & tài liệu, Nghe, Phát âm, Từ vựng, Ngữ pháp, Giao tiếp, Chính tả, Kiểm tra và CD-ROM & tệp khác. Có thể tìm theo tên tệp hoặc đường dẫn, đánh dấu đã học và tiếp tục mục gần đây; tiến độ được lưu trong `localStorage`.
+Nội dung được chuyển thành trang web tĩnh, **không nhúng PDF hoặc RAR**. OCR có thể nhận sai chữ trên bản quét; đối chiếu ảnh bài học khi làm bài. Bản ghi âm ở trang giáo trình chỉ phát lại trong phiên đang mở. Những trang và tệp ứng dụng đã xem được service worker lưu để đọc lại khi mất mạng; audio chưa phát trước đó cần mạng để tải lần đầu.
 
-Để đọc PDF hoặc nghe MP3 từ bộ tài liệu trên máy, nhấn **Chọn thư mục học liệu** và chọn `SOURCE/extracted/New-english-file`. Trên Chrome/Edge, quyền đọc thư mục có thể được lưu bằng IndexedDB; trình duyệt khác dùng trình chọn thư mục và cần chọn lại sau khi tải trang. Web chỉ đọc tệp đã chọn, không tải nội dung của thư mục lên máy chủ. Các tệp CD-ROM cũ như SWF, EXE và NRG được liệt kê để tải về; chúng chưa được chuyển thành bài tập web.
+## Luyện phát âm từ và câu
 
-`course-catalog.json` được tạo từ toàn bộ học liệu bằng `node scripts/build-course-catalog.mjs`. Thư mục `SOURCE/` không nằm trong Git. Có thể cấu hình nguồn HTTPS cho từng cấp độ và liên kết tải trọn gói trong `course-sources.json` khi có nơi lưu trữ học liệu được phép phân phối. GitHub Pages giới hạn trang xuất bản ở 1 GiB nên không thể chứa nguyên bộ 3,34 GiB trong trang này.
+Trang chính [`index.html`](index.html) nhận danh sách từ hoặc câu, mỗi mục một dòng. Có thể tự nhập IPA, nghĩa, loại từ, word family và ví dụ. Khi có mạng, web thử tra IPA và thông tin từ các API công khai; cũng có form dán kết quả Google AI hoặc Cambridge để xem và chọn từng trường trước khi lưu. Dữ liệu chữ lưu trong `localStorage`, bản ghi âm lưu trong `IndexedDB`. Web cho phép nghe mẫu, ghi âm và so sánh bằng tai; không đưa ra điểm phát âm tự động vì nhận diện chữ không đủ tin cậy để chấm từng âm.
 
-## Sử dụng
+Trang [`course.html`](course.html) vẫn là kho duyệt tệp gốc cho người dùng muốn mở tài liệu trên máy của mình. Nó không cần thiết để dùng trang học trực tuyến.
 
-1. Mở trang GitHub Pages của dự án (hoặc chạy các tệp trong thư mục bằng một máy chủ tĩnh khi phát triển).
-2. Nhập mỗi từ/câu trên một dòng. Có thể thêm nghĩa và IPA theo mẫu `English | nghĩa tiếng Việt | /IPA/`.
-3. Một dòng có khoảng trắng được nhận là câu. Với cụm từ muốn lưu như từ vựng, thêm `word:` ở đầu dòng. Có thể đổi loại mục trong phần chi tiết.
-4. Chọn mục trong danh sách để sửa thông tin, nghe mẫu, ghi âm và nghe lại. Nút **Tra cứu tự động** chỉ điền các trường còn trống.
-5. Danh sách mới được tra cứu ở nền khi có mạng. Nút **Tra cứu toàn bộ danh sách** thử lại các mục còn thiếu thông tin. Mỗi kết quả được lưu ngay vào `localStorage`, nên đóng và mở lại web vẫn còn dữ liệu đã nhận.
-6. Mở **Dán kết quả Google AI / Cambridge để điền nhanh**, dùng các liên kết tra cứu hoặc chép mẫu yêu cầu AI, rồi dán kết quả vào web. Web sẽ tách nghĩa, IPA, loại từ, word family và câu ví dụ để bạn kiểm tra. Bạn có thể bôi đen một đoạn và gán vào từng ô, sửa kết quả, đánh dấu những ô muốn dùng và nhấn **Điền và lưu các ô đã chọn**. Những ô được chọn sẽ thay giá trị cũ.
+## Tạo lại nội dung từ SOURCE
 
-Danh sách được lưu bằng `localStorage`; bản ghi âm gần nhất của mỗi mục được lưu bằng `IndexedDB`. Nút **Xuất danh sách** tạo tệp JSON để sao lưu nội dung chữ. Tệp xuất chưa bao gồm bản ghi âm.
+Các tệp gốc nằm trong `SOURCE/extracted/New-english-file/` và được loại khỏi Git. Cần Python với `PyMuPDF`, `Pillow`, Tesseract OCR (`C:\Program Files\Tesseract-OCR\tesseract.exe`) và FFmpeg/FFprobe trong `PATH`.
 
-## Triển khai trên GitHub Pages
+```powershell
+python -m pip install PyMuPDF Pillow
+python scripts/build_web_course.py --workers 4
+python scripts/build_lesson_audio.py
+node scripts/validate-study-assets.mjs
+node scripts/deploy_lesson_audio.mjs --execute
+```
 
-Đưa các tệp trong thư mục này lên nhánh `main` của GitHub. Trong **Settings → Pages**, chọn **Deploy from a branch**, nhánh `main`, thư mục `/ (root)`. Trang hoạt động dưới tên miền GitHub Pages của repository mà không cần backend hoặc bước build. HTTPS của GitHub Pages cho phép trình duyệt xin quyền dùng micro.
+`build_web_course.py` tạo `course-pages/` và `lesson-data/`. `build_lesson_audio.py` tạo `lesson-audio.json` và sáu thư mục audio đã chuyển thành MP3 trong `SOURCE/audio-sites/`. Lệnh deploy audio tạo sáu repository công khai ở tài khoản GitHub `huyvulccd`, bật Pages và ghi `lesson-audio-sources.json`; nó dùng thông tin đăng nhập từ Git Credential Manager. Mỗi repo chỉ chứa audio của một cấp độ. Sau đó commit và push repository chính để xuất bản trang học.
 
-Service worker lưu các tệp ứng dụng để dùng lại khi ngoại tuyến sau lần tải đầu. Việc tra thông tin mới vẫn cần mạng. Khi đã lưu trong trình duyệt, danh sách và các bản ghi tiếp tục hoạt động ngoại tuyến. Nút **Nghe mẫu** dùng giọng tiếng Anh cục bộ của trình duyệt/hệ điều hành; nếu thiết bị không có giọng này, cần cài giọng tiếng Anh trên thiết bị.
+## Kiểm tra
 
-## Nguồn tra cứu và giới hạn
+```powershell
+node --test tests/research-parser.test.mjs
+node scripts/validate-study-assets.mjs
+node scripts/check-study-browser.mjs
+```
 
-- [Free Dictionary API](https://dictionaryapi.dev/) cung cấp IPA, loại từ và câu ví dụ cho từ đơn.
-- [Datamuse API](https://www.datamuse.com/api/) cung cấp IPA gợi ý và các từ có cùng tiền tố để tham khảo word family. Gợi ý word family không phải kết quả từ điển đã xác minh.
-- [MyMemory Translation API](https://mymemory.translated.net/doc/spec.php) cung cấp bản dịch tiếng Việt tham khảo. Bản dịch có thể sai; người học nên kiểm tra và chỉnh sửa.
-- IPA của câu được ghép từ IPA từng từ, chưa thể hiện nối âm, nhấn trọng âm câu hay ngữ điệu.
-- Web ghi âm và phát lại để tự so sánh; không đưa điểm phát âm tự động vì nhận diện chữ không đủ để chấm từng âm một cách đáng tin cậy.
-- Liên kết Google và Cambridge mở trang tra cứu riêng để người dùng sao chép thông tin về web. Web không đọc trực tiếp Google AI Overview hoặc Cambridge Dictionary: [Cambridge API cần khóa truy cập](https://dictionary-api.cambridge.org/api/faq), còn [Google khuyến cáo không đặt Gemini API key trong web công khai](https://ai.google.dev/gemini-api/docs/api-key).
+Bài kiểm tra trình duyệt cần Chrome và chạy qua máy chủ tĩnh cục bộ do script tự mở. Nó kiểm tra hiển thị trang, chuyển trang, ảnh, lưu câu trả lời và ghi chú, đánh dấu đã học và khôi phục sau khi tải lại.
 
-Không có API key trong mã. Tra cứu công khai có thể bị giới hạn lưu lượng hoặc ngừng hoạt động; nhập và sửa tay vẫn dùng được.
+## Giới hạn
 
-Kiểm tra bộ tách thông tin đã dán bằng `node --test tests/research-parser.test.mjs`.
+GitHub Pages là hosting tĩnh. Tra cứu thông tin mới và tải audio chưa xem cần Internet. Bài tập trích từ OCR là gợi ý để người học tự trả lời; web không có đáp án chấm tự động. Các API từ điển hoặc dịch miễn phí có thể giới hạn lưu lượng, nên thông tin tra cứu cần được người học kiểm tra trước khi lưu.
