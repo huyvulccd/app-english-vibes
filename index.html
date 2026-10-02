@@ -3,487 +3,71 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f7f5ef" />
-    <meta
-      name="description"
-      content="Góc luyện phát âm tiếng Anh: lưu từ và câu, nghe mẫu, ghi âm và nghe lại."
-    />
+    <meta name="theme-color" content="#f5f3ed" />
+    <meta name="description" content="Học từ vựng B1–C2, shadowing, chép chính tả và dịch từ tin tức trên SayBack." />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./style.css" />
-    <title>SayBack — Luyện phát âm tiếng Anh</title>
+    <link rel="stylesheet" href="./practice.css" />
+    <title>SayBack — Luyện tiếng Anh mỗi ngày</title>
   </head>
   <body>
-    <div class="app-shell">
-      <aside class="sidebar" aria-label="Danh sách luyện tập">
-        <div class="brand-row">
-          <div class="brand-mark" aria-hidden="true">
-            <span></span><span></span><span></span>
-          </div>
-          <div>
-            <div class="brand-name">SayBack</div>
-            <div class="brand-subtitle">Phòng luyện phát âm của bạn</div>
-          </div>
-        </div>
+    <header class="topbar">
+      <a class="brand" href="./index.html" aria-label="SayBack, trang luyện kỹ năng"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span><strong>SayBack</strong><small>Học đều, nhớ lâu</small></span></a>
+      <nav class="main-nav" aria-label="Khu vực học">
+        <button class="nav-tab active" type="button" data-view="vocabulary" aria-current="page">Từ vựng</button>
+        <button class="nav-tab" type="button" data-view="shadowing">Shadowing</button>
+        <button class="nav-tab" type="button" data-view="dictation">Chép chính tả</button>
+        <button class="nav-tab" type="button" data-view="translation">Dịch</button>
+        <a class="nav-course" href="./study.html">Giáo trình <span aria-hidden="true">↗</span></a>
+      </nav>
+    </header>
 
-        <a class="course-entry" href="./study.html">
-          <span class="course-entry-icon" aria-hidden="true">▤</span>
-          <span><strong>Học theo giáo trình</strong><small>Bài học, nghe, đọc và viết theo cấp độ</small></span>
-          <span aria-hidden="true">↗</span>
-        </a>
-
-        <div class="sidebar-heading">
-          <div>
-            <span class="eyebrow">THƯ VIỆN CÁ NHÂN</span>
-            <h2>Danh sách luyện tập</h2>
-          </div>
-          <span id="item-count" class="count-badge">0</span>
-        </div>
-
-        <button
-          id="mobile-add-toggle"
-          class="button button-primary mobile-add-toggle"
-          type="button"
-          aria-expanded="false"
-          aria-controls="add-form"
-        >
-          ＋ Thêm từ hoặc câu
-        </button>
-        <form id="add-form" class="add-card">
-          <label for="bulk-input">Thêm từ hoặc câu, mỗi dòng một mục</label>
-          <textarea
-            id="bulk-input"
-            rows="5"
-            placeholder="pronunciation&#10;I am learning English.&#10;word: take off | cất cánh"
-          ></textarea>
-          <p class="input-hint">
-            Có thể nhập: <strong>Tiếng Anh | nghĩa tiếng Việt | IPA</strong>.
-            Cụm từ có thể bắt đầu bằng <strong>word:</strong>.
-          </p>
-          <button class="button button-primary button-full" type="submit">
-            <span aria-hidden="true">＋</span> Thêm vào danh sách
-          </button>
-        </form>
-
-        <div class="batch-tools">
-          <button
-            id="batch-lookup-button"
-            class="button button-outline button-full"
-            type="button"
-          >
-            ✦ Tra cứu toàn bộ danh sách
-          </button>
-          <p
-            id="batch-progress"
-            class="batch-progress"
-            role="status"
-            aria-live="polite"
-            hidden
-          ></p>
-        </div>
-
-        <div class="list-tools">
-          <label class="search-box" for="search-input"
-            ><span aria-hidden="true">⌕</span
-            ><input
-              id="search-input"
-              type="search"
-              placeholder="Tìm trong danh sách"
-              autocomplete="off"
-          /></label>
-          <div class="filters" role="group" aria-label="Lọc danh sách">
-            <button class="filter active" data-filter="all" type="button">
-              Tất cả
-            </button>
-            <button class="filter" data-filter="word" type="button">
-              Từ vựng
-            </button>
-            <button class="filter" data-filter="sentence" type="button">
-              Câu
-            </button>
-          </div>
-        </div>
-
-        <div id="item-list" class="item-list" aria-live="polite"></div>
-
-        <div class="sidebar-footer">
-          <button id="export-button" class="text-button" type="button">
-            Xuất danh sách
-          </button>
-          <span aria-hidden="true">·</span>
-          <label for="import-file" class="text-button import-label"
-            >Nhập từ tệp</label
-          >
-          <input
-            id="import-file"
-            type="file"
-            accept="application/json,.json"
-            hidden
-          />
-        </div>
-      </aside>
-
-      <main class="main-panel">
-        <header class="topbar">
-          <span class="topbar-note"
-            ><span class="status-dot"></span> Học theo nhịp của bạn</span
-          ><span id="connection-label" class="connection-pill">Sẵn sàng</span>
-        </header>
-
-        <section id="empty-state" class="empty-state">
-          <div class="empty-illustration" aria-hidden="true">
-            <span>ə</span><i></i><i></i><i></i>
-          </div>
-          <span class="eyebrow">BẮT ĐẦU TỪ MỘT ÂM</span>
-          <h1>Nghe kỹ. Nói lại.<br /><em>Tiến bộ mỗi ngày.</em></h1>
-          <p>
-            Nhập danh sách từ hoặc câu ở bên trái. Chọn một mục để xem phiên âm,
-            nghe mẫu và ghi lại giọng nói của bạn.
-          </p>
-          <button
-            id="add-samples-button"
-            class="button button-secondary"
-            type="button"
-          >
-            Thử với 3 mục mẫu <span aria-hidden="true">↗</span>
-          </button>
-        </section>
-
-        <section id="detail-view" class="detail-view" hidden>
-          <div class="detail-header">
-            <div class="detail-heading">
-              <span id="detail-type" class="type-tag">TỪ VỰNG</span>
-              <h1 id="detail-title"></h1>
-              <p id="detail-subtitle" class="detail-subtitle"></p>
+    <main class="app-main">
+      <section id="view-vocabulary" class="view">
+        <div class="view-heading"><div><span class="eyebrow">01 / GHI NHỚ</span><h1>Học từ vựng</h1><p>Chọn nghĩa, nghe, viết và tự kiểm tra phát âm. Mỗi từ được hẹn ngày ôn riêng.</p></div><div class="heading-aside"><strong id="vocab-total">—</strong><span>từ B1–C2</span></div></div>
+        <div class="level-switch" role="group" aria-label="Trình độ từ vựng"><button type="button" data-level="B1" class="active">B1</button><button type="button" data-level="B2">B2</button><button type="button" data-level="C1">C1</button><button type="button" data-level="C2">C2</button></div>
+        <div class="vocab-layout">
+          <section class="panel review-panel" aria-label="Buổi ôn từ vựng">
+            <div class="review-overview" id="review-overview"><div class="stat-row"><div><strong id="due-count">0</strong><span>đến hạn ôn</span></div><div><strong id="new-count">0</strong><span>chưa học</span></div><div><strong id="learned-count">0</strong><span>đã bắt đầu</span></div></div><h2>Một buổi, bốn cách nhớ</h2><p>Mỗi từ đi qua bốn bước: hiểu nghĩa, nghe nhận diện, viết lại và phát âm. Từ sai sẽ quay lại sớm hơn.</p><button id="start-review" class="button primary" type="button">Bắt đầu 10 từ</button><p class="small-note">Tiến độ được lưu trong trình duyệt này. Nghĩa dịch là gợi ý và có thể sửa trước khi học.</p></div>
+            <div id="review-session" hidden>
+              <div class="session-top"><span id="session-position">1 / 10</span><span id="session-stage">1 / 4 · Chọn nghĩa</span></div>
+              <div class="session-meter"><span id="session-meter-fill"></span></div>
+              <div class="question-kicker" id="question-kicker"></div>
+              <h2 id="question-title" class="question-title"></h2>
+              <p id="question-helper" class="question-helper"></p>
+              <button id="question-speak" class="speak-button" type="button" hidden><span aria-hidden="true">♪</span> Nghe từ</button>
+              <div id="choice-options" class="choice-options" hidden></div>
+              <form id="spelling-form" class="spelling-form" hidden><label for="spelling-input">Viết từ tiếng Anh<input id="spelling-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" /></label><button class="button primary" type="submit">Kiểm tra</button></form>
+              <div id="pronunciation-tools" class="pronunciation-tools" hidden><p>Nghe mẫu, ghi âm rồi nghe lại. Tự đánh giá cách phát âm của bạn.</p><div class="pronunciation-controls"><button id="vocab-record" class="button outline" type="button">● Ghi âm</button><audio id="vocab-recording" controls hidden></audio></div><p id="vocab-record-status" class="small-note"></p><div class="rating-row"><button type="button" data-rating="again">Cần ôn lại</button><button type="button" data-rating="good">Ổn</button><button type="button" data-rating="easy">Rất chắc</button></div></div>
+              <div id="answer-feedback" class="answer-feedback" hidden></div>
+              <button id="next-question" class="button primary" type="button" hidden>Tiếp tục</button>
             </div>
-            <div class="detail-actions">
-              <button
-                id="lookup-button"
-                class="button button-outline"
-                type="button"
-              >
-                <span aria-hidden="true">✦</span> Tra cứu tự động</button
-              ><button
-                id="delete-button"
-                class="icon-button danger"
-                type="button"
-                aria-label="Xóa mục này"
-                title="Xóa mục này"
-              >
-                🗑
-              </button>
-            </div>
-          </div>
+            <div id="review-finished" class="review-finished" hidden><span class="eyebrow">BUỔI HỌC HOÀN TẤT</span><h2>Đã ôn xong <span id="finished-count">0</span> từ</h2><p id="finished-summary"></p><button id="review-again" class="button primary" type="button">Ôn thêm</button></div>
+          </section>
+          <aside class="panel word-library" aria-label="Kho từ vựng"><div class="panel-heading"><div><span class="eyebrow">KHO TỪ</span><h2>Chọn từ để học</h2></div><span id="level-word-count" class="count-pill"></span></div><label class="field-label" for="word-search">Tìm từ<input id="word-search" type="search" placeholder="Ví dụ: resilience" /></label><div id="word-results" class="word-results"></div><details class="add-word"><summary>Thêm từ của bạn</summary><form id="add-word-form"><label>Tiếng Anh<input id="custom-word" required autocomplete="off" /></label><label>Nghĩa tiếng Việt<input id="custom-meaning" required /></label><label>Cấp độ<select id="custom-level"><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></label><button class="button primary" type="submit">Lưu từ</button></form></details><p class="small-note attribution">Danh sách mức độ từ <a href="https://github.com/openlanguageprofiles/olp-en-cefrj" target="_blank" rel="noopener">CEFR-J / Octanove</a>; nghĩa từ <a href="https://github.com/thichhoc-org/thichhoc-dict" target="_blank" rel="noopener">thichhoc-dict</a> (CC BY-SA 4.0).</p><a class="legacy-link" href="./pronunciation.html">Mở danh sách phát âm cũ ↗</a></aside>
+        </div>
+      </section>
 
-          <div id="lookup-notice" class="notice" hidden role="status"></div>
+      <section id="view-shadowing" class="view" hidden>
+        <div class="view-heading"><div><span class="eyebrow">02 / NGHE & NÓI</span><h1>Shadowing</h1><p>Nghe một đoạn ngắn, nói theo và nghe lại giọng của bạn. Bản ghi được giữ khi chuyển đoạn trong phiên này.</p></div><div class="heading-aside"><strong id="shadow-record-count">0</strong><span>đoạn đã ghi</span></div></div>
+        <div class="news-layout"><aside class="panel source-panel"><div class="panel-heading"><div><span class="eyebrow">NGUỒN ĐỌC</span><h2>Chọn bài báo</h2></div></div><label class="field-label" for="shadow-article">Bài tiếng Anh<select id="shadow-article"></select></label><div id="shadow-article-meta" class="article-meta"></div><details class="custom-passage"><summary>Hoặc dán bài của bạn</summary><label for="shadow-custom-text">Văn bản tiếng Anh</label><textarea id="shadow-custom-text" rows="6" placeholder="Dán một đoạn tin tiếng Anh..." lang="en"></textarea><button id="shadow-use-custom" class="button outline" type="button">Dùng đoạn này</button></details><div id="shadow-segments" class="segment-list" aria-label="Các đoạn shadowing"></div></aside><div class="panel exercise-panel"><div class="exercise-top"><span id="shadow-counter" class="eyebrow">ĐOẠN 1 / 1</span><span id="shadow-record-marker" class="status-marker"></span></div><p id="shadow-text" class="passage-text" lang="en"></p><div class="play-row"><button id="shadow-speak" class="button primary" type="button">♪ Nghe mẫu</button><label>Tốc độ <select id="shadow-speed"><option value="1">1×</option><option value="0.75">0,75×</option></select></label></div><div class="record-card"><div><strong>Giọng của bạn</strong><p id="shadow-record-status">Bấm ghi âm và đọc đoạn phía trên.</p></div><button id="shadow-record" class="record-round" type="button" aria-label="Bắt đầu ghi âm"><span></span></button><audio id="shadow-playback" controls hidden></audio></div><div class="page-step"><button id="shadow-prev" class="button outline" type="button">← Đoạn trước</button><button id="shadow-next" class="button outline" type="button">Đoạn sau →</button></div></div></div>
+      </section>
 
-          <div class="detail-grid">
-            <section class="card info-card" aria-labelledby="info-title">
-              <div class="section-title-row">
-                <div>
-                  <span class="eyebrow">01 / THÔNG TIN</span>
-                  <h2 id="info-title">Hiểu nội dung</h2>
-                </div>
-                <span class="card-icon" aria-hidden="true">Aa</span>
-              </div>
-              <div class="field-grid">
-                <label class="field field-wide"
-                  ><span>Nội dung tiếng Anh</span
-                  ><input id="field-text" type="text" maxlength="300"
-                /></label>
-                <label class="field"
-                  ><span>Loại mục</span
-                  ><select id="field-type">
-                    <option value="word">Từ vựng</option>
-                    <option value="sentence">Câu</option>
-                  </select></label
-                >
-                <label class="field"
-                  ><span>Phiên âm IPA <small id="ipa-hint"></small></span
-                  ><input
-                    id="field-ipa"
-                    type="text"
-                    placeholder="Ví dụ: /həˈləʊ/"
-                /></label>
-                <div id="word-fields" class="word-fields field-wide">
-                  <label class="field"
-                    ><span>Loại từ</span
-                    ><input
-                      id="field-part-of-speech"
-                      type="text"
-                      placeholder="noun, verb, adjective..."
-                  /></label>
-                  <label class="field"
-                    ><span>Word family <small>gợi ý, có thể sửa</small></span
-                    ><input
-                      id="field-family"
-                      type="text"
-                      placeholder="Các từ cùng họ"
-                  /></label>
-                  <label class="field field-wide"
-                    ><span>Câu ví dụ</span
-                    ><textarea
-                      id="field-example"
-                      rows="2"
-                      placeholder="Đặt từ này vào một câu"
-                    ></textarea>
-                  </label>
-                </div>
-                <label class="field field-wide"
-                  ><span
-                    >Nghĩa tiếng Việt
-                    <small>kiểm tra lại nếu tra cứu tự động</small></span
-                  ><textarea
-                    id="field-meaning"
-                    rows="2"
-                    placeholder="Nhập nghĩa để ghi nhớ"
-                  ></textarea>
-                </label>
-              </div>
-              <details id="research-panel" class="research-panel">
-                <summary>
-                  Dán kết quả Google AI / Cambridge để điền nhanh
-                </summary>
-                <div class="research-content">
-                  <p class="research-help">
-                    Mở nguồn tra cứu, sao chép phần hữu ích rồi dán bên dưới.
-                    Bạn có thể kiểm tra và chọn từng ô trước khi lưu.
-                  </p>
-                  <div class="research-links">
-                    <a
-                      id="research-google-link"
-                      href="https://www.google.com/search"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      >Mở Google ↗</a
-                    >
-                    <a
-                      id="cambridge-link"
-                      href="https://dictionary.cambridge.org/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      >Mở Cambridge ↗</a
-                    >
-                    <button
-                      id="copy-prompt-button"
-                      class="text-button"
-                      type="button"
-                    >
-                      Chép mẫu yêu cầu AI
-                    </button>
-                  </div>
-                  <label class="field field-wide" for="research-text"
-                    ><span>Nội dung sao chép</span></label
-                  >
-                  <textarea
-                    id="research-text"
-                    rows="7"
-                    placeholder="Dán kết quả tra cứu tại đây. Ví dụ: IPA US: /rɪˈpɑː.zɪ.tɔːr.i/&#10;Loại từ: noun&#10;Nghĩa: kho chứa, nơi lưu trữ..."
-                  ></textarea>
-                  <button
-                    id="parse-research-button"
-                    class="button button-light"
-                    type="button"
-                  >
-                    Nhận diện thông tin
-                  </button>
-                  <div id="research-preview" class="research-preview" hidden>
-                    <p class="research-help">
-                      Đánh dấu ô muốn điền. Có thể sửa giá trị hoặc bôi đen đoạn
-                      trong nội dung trên rồi nhấn “Lấy đoạn chọn”.
-                    </p>
-                    <div id="ipa-options" class="ipa-options" hidden></div>
-                    <div class="preview-row" data-word-only>
-                      <label
-                        ><input
-                          type="checkbox"
-                          data-include-field="partOfSpeech"
-                        />
-                        Loại từ</label
-                      >
-                      <button
-                        type="button"
-                        class="text-button pick-selection"
-                        data-pick-field="partOfSpeech"
-                      >
-                        Lấy đoạn chọn
-                      </button>
-                      <input
-                        type="text"
-                        data-preview-field="partOfSpeech"
-                        placeholder="noun, verb..."
-                      />
-                    </div>
-                    <div class="preview-row">
-                      <label
-                        ><input type="checkbox" data-include-field="ipa" />
-                        IPA</label
-                      >
-                      <button
-                        type="button"
-                        class="text-button pick-selection"
-                        data-pick-field="ipa"
-                      >
-                        Lấy đoạn chọn
-                      </button>
-                      <input
-                        type="text"
-                        data-preview-field="ipa"
-                        placeholder="/…/"
-                      />
-                    </div>
-                    <div class="preview-row" data-word-only>
-                      <label
-                        ><input type="checkbox" data-include-field="family" />
-                        Word family</label
-                      >
-                      <button
-                        type="button"
-                        class="text-button pick-selection"
-                        data-pick-field="family"
-                      >
-                        Lấy đoạn chọn
-                      </button>
-                      <input
-                        type="text"
-                        data-preview-field="family"
-                        placeholder="Các từ cùng họ"
-                      />
-                    </div>
-                    <div class="preview-row" data-word-only>
-                      <label
-                        ><input type="checkbox" data-include-field="example" />
-                        Câu ví dụ</label
-                      >
-                      <button
-                        type="button"
-                        class="text-button pick-selection"
-                        data-pick-field="example"
-                      >
-                        Lấy đoạn chọn
-                      </button>
-                      <textarea
-                        rows="2"
-                        data-preview-field="example"
-                        placeholder="Câu ví dụ tiếng Anh"
-                      ></textarea>
-                    </div>
-                    <div class="preview-row">
-                      <label
-                        ><input type="checkbox" data-include-field="meaning" />
-                        Nghĩa tiếng Việt</label
-                      >
-                      <button
-                        type="button"
-                        class="text-button pick-selection"
-                        data-pick-field="meaning"
-                      >
-                        Lấy đoạn chọn
-                      </button>
-                      <textarea
-                        rows="3"
-                        data-preview-field="meaning"
-                        placeholder="Nghĩa tiếng Việt"
-                      ></textarea>
-                    </div>
-                    <button
-                      id="apply-research-button"
-                      class="button button-primary button-full"
-                      type="button"
-                    >
-                      Điền và lưu các ô đã chọn
-                    </button>
-                  </div>
-                </div>
-              </details>
-              <div class="source-row">
-                <span>Thiếu thông tin? Bạn có thể sửa trực tiếp.</span>
-                <a
-                  id="google-link"
-                  href="https://www.google.com/search"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  >Tìm trên Google ↗</a
-                >
-              </div>
-            </section>
+      <section id="view-dictation" class="view" hidden>
+        <div class="view-heading"><div><span class="eyebrow">03 / NGHE & VIẾT</span><h1>Chép chính tả</h1><p>Nghe từng đoạn, viết lại và xem những từ còn sai khi kết thúc bài.</p></div></div>
+        <div class="news-layout"><aside class="panel source-panel"><div class="panel-heading"><div><span class="eyebrow">BÀI NGHE</span><h2>Chọn bài báo</h2></div></div><label class="field-label" for="dictation-article">Bài tiếng Anh<select id="dictation-article"></select></label><div id="dictation-article-meta" class="article-meta"></div><details class="custom-passage"><summary>Hoặc dán bài của bạn</summary><label for="dictation-custom-text">Văn bản tiếng Anh</label><textarea id="dictation-custom-text" rows="6" placeholder="Dán một đoạn tin tiếng Anh..." lang="en"></textarea><button id="dictation-use-custom" class="button outline" type="button">Dùng đoạn này</button></details><div id="dictation-segments" class="segment-list" aria-label="Các đoạn chép chính tả"></div></aside><div class="panel exercise-panel"><div id="dictation-work"><div class="exercise-top"><span id="dictation-counter" class="eyebrow">ĐOẠN 1 / 1</span><span id="dictation-draft-count" class="status-marker"></span></div><h2>Nghe và viết lại</h2><p class="small-note">Nội dung gốc được ẩn cho đến khi bạn kết thúc bài. Câu trả lời vẫn còn khi đổi đoạn.</p><div class="dictation-play"><button id="dictation-speak" class="button primary" type="button">♪ Phát đoạn</button><div class="speed-switch" role="group" aria-label="Tốc độ nghe"><button data-speed="1" class="active" type="button">1×</button><button data-speed="0.75" type="button">0,75×</button></div></div><label class="field-label" for="dictation-answer">Bạn nghe được gì?<textarea id="dictation-answer" rows="8" lang="en" placeholder="Viết chính xác những từ bạn nghe được..."></textarea></label><div class="page-step"><button id="dictation-prev" class="button outline" type="button">← Đoạn trước</button><button id="dictation-next" class="button outline" type="button">Đoạn sau →</button></div><button id="dictation-finish" class="button finish-button" type="button">Kết thúc và chấm bài</button></div><div id="dictation-results" hidden><div class="result-score"><span class="eyebrow">KẾT QUẢ TOÀN BÀI</span><strong id="dictation-accuracy">0%</strong><p id="dictation-result-detail"></p></div><div id="dictation-comparison" class="comparison-list"></div><div class="save-words"><h2>Lưu từ chưa biết</h2><p>Chọn các từ muốn đưa vào lịch ôn. Bạn có thể sửa nghĩa trước khi lưu.</p><div id="unknown-words" class="unknown-words"></div><button id="save-unknown" class="button primary" type="button">Lưu các từ đã chọn</button><span id="save-unknown-status" role="status"></span></div><button id="dictation-return" class="button outline" type="button">Quay lại bài chép</button></div></div></div>
+      </section>
 
-            <section
-              class="card practice-card"
-              aria-labelledby="practice-title"
-            >
-              <div class="section-title-row">
-                <div>
-                  <span class="eyebrow">02 / LUYỆN TẬP</span>
-                  <h2 id="practice-title">Nói theo cách của bạn</h2>
-                </div>
-                <span class="card-icon sound-icon" aria-hidden="true">◖))</span>
-              </div>
-              <div class="practice-steps">
-                <span><b>1</b> Nghe mẫu</span><i></i><span><b>2</b> Ghi âm</span
-                ><i></i><span><b>3</b> Nghe lại</span>
-              </div>
-              <div class="model-block">
-                <div class="model-label">MẪU PHÁT ÂM</div>
-                <div id="practice-text" class="practice-text"></div>
-                <div class="model-controls">
-                  <button
-                    id="speak-button"
-                    class="button button-dark"
-                    type="button"
-                  >
-                    <span aria-hidden="true">▶</span> Nghe mẫu</button
-                  ><button
-                    id="slow-button"
-                    class="button button-light"
-                    type="button"
-                  >
-                    Chậm 0.75×
-                  </button>
-                </div>
-                <p id="voice-hint" class="muted-note">
-                  Giọng đọc phụ thuộc vào giọng tiếng Anh có sẵn trên thiết bị.
-                </p>
-              </div>
-              <div class="record-block">
-                <div class="record-copy">
-                  <div class="model-label">GIỌNG CỦA BẠN</div>
-                  <p id="record-status">
-                    Sẵn sàng ghi âm. Hãy nói rõ ràng trong môi trường yên tĩnh.
-                  </p>
-                </div>
-                <button
-                  id="record-button"
-                  class="record-button"
-                  type="button"
-                  aria-label="Bắt đầu ghi âm"
-                >
-                  <span class="record-dot"></span>
-                </button>
-              </div>
-              <div id="playback-block" class="playback-block" hidden>
-                <div class="playback-heading">
-                  <span>Nghe lại bản ghi</span><small id="record-time"></small>
-                </div>
-                <audio id="recording-audio" controls preload="metadata"></audio
-                ><button
-                  id="remove-recording-button"
-                  class="text-button"
-                  type="button"
-                >
-                  Xóa bản ghi này
-                </button>
-              </div>
-              <p class="practice-note">
-                Bản ghi được lưu trong trình duyệt trên thiết bị này. Web không
-                tự chấm điểm phát âm.
-              </p>
-            </section>
-          </div>
-        </section>
-      </main>
-    </div>
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="./app.js"></script>
+      <section id="view-translation" class="view" hidden>
+        <div class="view-heading"><div><span class="eyebrow">04 / ĐỌC & DỊCH</span><h1>Dịch bài báo</h1><p>Dịch theo cách của bạn, sau đó sao chép cả bài gốc và bài dịch để nhờ AI chấm.</p></div></div>
+        <div class="translation-toolbar"><div class="direction-switch" role="group" aria-label="Chiều dịch"><button type="button" data-direction="en-vi" class="active">Anh → Việt</button><button type="button" data-direction="vi-en">Việt → Anh</button></div><label class="field-label" for="translation-article">Bài báo<select id="translation-article"></select></label><span id="translation-article-meta" class="article-meta"></span></div>
+        <details class="translation-custom custom-passage"><summary>Hoặc dán văn bản của bạn</summary><textarea id="translation-custom-text" rows="5" placeholder="Dán văn bản theo chiều dịch đang chọn..."></textarea><button id="translation-use-custom" class="button outline" type="button">Dùng văn bản này</button></details>
+        <div class="translation-grid"><div class="translation-pane"><div class="pane-heading"><span id="translation-source-label">BÀI GỐC · TIẾNG ANH</span><span id="translation-source-count"></span></div><div id="translation-source" class="translation-source" lang="en"></div></div><div class="translation-pane"><div class="pane-heading"><label for="translation-answer" id="translation-target-label">BẢN DỊCH · TIẾNG VIỆT</label><span id="translation-answer-count">0 từ</span></div><textarea id="translation-answer" placeholder="Viết bản dịch của bạn tại đây..."></textarea></div></div><div class="translation-bottom"><button id="translation-copy" class="button primary" type="button">Sao chép để nhờ AI chấm</button><p id="translation-copy-status" role="status" aria-live="polite"></p></div>
+      </section>
+    </main>
+
+    <dialog id="word-dialog" class="word-dialog"><form method="dialog"><button class="dialog-close" aria-label="Đóng" value="close">×</button><span id="dialog-level" class="eyebrow"></span><h2 id="dialog-word"></h2><p id="dialog-definition"></p><label for="dialog-meaning">Nghĩa tiếng Việt<textarea id="dialog-meaning" rows="3"></textarea></label><div class="dialog-actions"><button id="dialog-speak" class="button outline" type="button">♪ Nghe</button><button id="dialog-save" class="button primary" type="button">Lưu và đưa vào ôn</button></div></form></dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script type="module" src="./practice.js"></script>
   </body>
 </html>

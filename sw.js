@@ -1,7 +1,13 @@
-const CACHE_NAME = "sayback-v5";
+const CACHE_NAME = "sayback-v6";
 const CORE = [
   "./",
   "./index.html",
+  "./practice.css",
+  "./practice.js",
+  "./practice-core.mjs",
+  "./vocabulary-data.json",
+  "./news-data.json",
+  "./pronunciation.html",
   "./study.html",
   "./study.css",
   "./study-extras.css",

@@ -1,22 +1,59 @@
 # SayBack
 
-Web học tiếng Anh và luyện phát âm chạy trực tiếp trên GitHub Pages, không cần máy chủ ứng dụng hay tài khoản. Mở tại <https://huyvulccd.github.io/app-english-vibes/>.
+Web học tiếng Anh chạy trên GitHub Pages: <https://huyvulccd.github.io/app-english-vibes/>. Trang chủ có bốn khu luyện tập; trang giáo trình và danh sách phát âm cũ vẫn có đường dẫn riêng. Ứng dụng chỉ dùng HTML, CSS, JavaScript và dữ liệu JSON tĩnh. Không cần tài khoản hoặc máy chủ ứng dụng.
 
-## Học theo giáo trình
+## Các khu học
 
-Trang [`study.html`](study.html) chuyển nội dung từ 203 PDF New English File thành 3.370 trang học cho sáu cấp độ Beginner, Elementary, Pre-Intermediate, Intermediate, Upper-Intermediate và Advanced. Trang hiển thị ảnh WebP của bài học; văn bản trích xuất và OCR hỗ trợ tìm trong sách, chọn đoạn để luyện phát âm, nhận diện gợi ý bài tập và lưu câu trả lời. Có thể nghe 5.206 track, giảm tốc độ, lặp lại, ghi âm và nghe lại giọng mình. Tiến độ từng trang, ghi chú, câu trả lời và trang gần nhất lưu trong `localStorage` của trình duyệt.
+### Từ vựng B1–C2
 
-Nội dung được chuyển thành trang web tĩnh, **không nhúng PDF hoặc RAR**. OCR có thể nhận sai chữ trên bản quét; đối chiếu ảnh bài học khi làm bài. Bản ghi âm ở trang giáo trình chỉ phát lại trong phiên đang mở. Những trang và tệp ứng dụng đã xem được service worker lưu để đọc lại khi mất mạng; audio chưa phát trước đó cần mạng để tải lần đầu.
+Kho có 3.947 từ: B1 (1.125), B2 (1.444), C1 (710), C2 (668). Mỗi lượt lấy tối đa 10 từ đến hạn hoặc từ mới. Mỗi từ đi qua bốn bước:
 
-## Luyện phát âm từ và câu
+1. Nhìn từ tiếng Anh và chọn nghĩa tiếng Việt trong bốn đáp án.
+2. Nghe từ bằng giọng đọc của trình duyệt và chọn một trong bốn từ tiếng Anh.
+3. Nhìn nghĩa tiếng Việt và viết lại từ tiếng Anh.
+4. Nghe mẫu, ghi âm, nghe lại và tự đánh giá phát âm.
 
-Trang chính [`index.html`](index.html) nhận danh sách từ hoặc câu, mỗi mục một dòng. Có thể tự nhập IPA, nghĩa, loại từ, word family và ví dụ. Khi có mạng, web thử tra IPA và thông tin từ các API công khai; cũng có form dán kết quả Google AI hoặc Cambridge để xem và chọn từng trường trước khi lưu. Dữ liệu chữ lưu trong `localStorage`, bản ghi âm lưu trong `IndexedDB`. Web cho phép nghe mẫu, ghi âm và so sánh bằng tai; không đưa ra điểm phát âm tự động vì nhận diện chữ không đủ tin cậy để chấm từng âm.
+Từ trả lời sai được hẹn ôn lại sau một phút. Từ trả lời đúng được hẹn theo khoảng ngày tăng dần, tùy mức tự đánh giá. Người học có thể tìm từ, sửa nghĩa, thêm từ riêng. Tiến độ và nghĩa đã sửa lưu trong `localStorage`; bản ghi âm từ vựng lưu trong `IndexedDB` của trình duyệt.
 
-Trang [`course.html`](course.html) vẫn là kho duyệt tệp gốc cho người dùng muốn mở tài liệu trên máy của mình. Nó không cần thiết để dùng trang học trực tuyến.
+Cấp độ từ lấy từ [CEFR-J Vocabulary Profile và Octanove C1/C2](https://github.com/openlanguageprofiles/olp-en-cefrj). Nghĩa tiếng Việt lấy từ [thichhoc-dict](https://github.com/thichhoc-org/thichhoc-dict). Nghĩa do AI tạo ở nguồn, vì vậy nên kiểm tra và sửa trước khi học. Thông tin giấy phép và ghi nguồn ở [`VOCABULARY-LICENSE.md`](VOCABULARY-LICENSE.md).
 
-## Tạo lại nội dung từ SOURCE
+### Shadowing
 
-Các tệp gốc nằm trong `SOURCE/extracted/New-english-file/` và được loại khỏi Git. Cần Python với `PyMuPDF`, `Pillow`, Tesseract OCR (`C:\Program Files\Tesseract-OCR\tesseract.exe`) và FFmpeg/FFprobe trong `PATH`.
+Chọn tin tiếng Anh của BBC News, Viet Nam News hoặc VnExpress International, hoặc dán văn bản của mình. Trang chia tiêu đề và tóm tắt thành các đoạn theo dấu câu; từng đoạn có nút nghe mẫu, tốc độ nghe, ghi âm và phát lại. Bản ghi được giữ khi chuyển qua lại giữa các đoạn và bài trong phiên mở trang. Khi đóng hoặc tải lại trang, bản ghi Shadowing mất theo chủ ý.
+
+### Chép chính tả
+
+Dùng cùng nguồn tin tiếng Anh hoặc văn bản tự dán. Nghe từng đoạn ở tốc độ 1× hoặc 0,75×, viết câu trả lời, chuyển đoạn mà không mất phần đã viết trong phiên. Khi kết thúc, trang đối chiếu từng từ, tô đỏ từ sai/thiếu, gạch từ viết thêm và hiển thị tỷ lệ chính xác toàn bài. Từ trong bài được liệt kê để người học tích chọn, nhập hoặc sửa nghĩa và đưa vào lịch ôn từ vựng. Bài chép đang làm chỉ được giữ trong phiên mở trang.
+
+### Dịch Anh ↔ Việt
+
+Chọn tin tiếng Anh hoặc tin tiếng Việt, hay dán văn bản riêng. Bài gốc và ô dịch hiển thị cạnh nhau trên màn hình rộng. Nút sao chép tạo prompt gồm bài gốc, bản dịch và yêu cầu chấm; người học dán vào AI họ chọn. Trang không gửi nội dung dịch đến dịch vụ AI. Bản nháp được giữ khi đổi bài hoặc đổi chiều dịch trong phiên mở trang.
+
+## Nguồn tin và cập nhật
+
+`news-data.json` chứa **tiêu đề và tóm tắt RSS**, kèm tên nguồn, ngày và liên kết đến bài gốc. Đây là các đoạn ngắn để luyện tập; muốn học cả bài, mở liên kết nguồn rồi dán văn bản vào ô riêng. Dữ liệu từ [BBC News RSS](https://support.bbc.co.uk/platform/feeds/NewsFeeds.htm), [Viet Nam News RSS](https://vietnamnews.vn/rss), [VnExpress International RSS](https://e.vnexpress.net/rss) và [VnExpress RSS](https://vnexpress.net/rss). GitHub Actions chạy `scripts/build-news.mjs` hằng ngày để cập nhật tệp JSON và tự commit nếu có tin mới. Có thể chạy thủ công từ tab Actions hoặc tại máy:
+
+```powershell
+node scripts/build-news.mjs
+```
+
+Kho từ vựng được tạo trước rồi xuất bản như tệp tĩnh, không phải gọi API mỗi lần mở trang. Muốn tạo lại từ nguồn:
+
+```powershell
+node scripts/build-vocabulary.mjs
+```
+
+Script tải các danh sách CEFR-J/Octanove và các phần từ điển, giữ các nghĩa có độ tin cậy cao hoặc trung bình, rồi tạo `vocabulary-data.json`. Bản tải tạm được giữ trong `SOURCE/vocabulary-cache/` và không đưa lên Git. Hai tệp JSON nằm trong bộ nhớ đệm của service worker sau lần tải thành công, nên có thể mở lại khi mất mạng; tin mới và bài gốc cần mạng. Giọng đọc phụ thuộc các giọng cài trong trình duyệt/hệ điều hành; trình duyệt không có giọng phù hợp sẽ không phát mẫu.
+
+## Giáo trình và phát âm cũ
+
+[`study.html`](study.html) chuyển 203 PDF New English File thành 3.370 trang học cho sáu cấp độ từ Beginner đến Advanced, với 5.206 track nghe. Người học có thể tìm bài, xem ảnh trang, dùng OCR để tìm văn bản, chọn đoạn để luyện phát âm, ghi chú, lưu câu trả lời và theo dõi tiến độ. Văn bản OCR có thể sai; ảnh trang là bản đối chiếu. Audio chưa phát trước đó cần mạng để tải lần đầu.
+
+[`pronunciation.html`](pronunciation.html) là danh sách từ/câu do người học tự nhập trước đây. IPA, nghĩa, ví dụ và dữ liệu cá nhân tiếp tục nằm trong trình duyệt cũ; đường dẫn từ trang giáo trình vẫn mở công cụ này. Web cho nghe mẫu và ghi âm để tự so sánh, không tự chấm chính xác từng âm. [`course.html`](course.html) là trang duyệt kho tệp gốc trên máy người dùng.
+
+## Tạo lại nội dung giáo trình
+
+Các tệp gốc ở `SOURCE/extracted/New-english-file/` không đưa lên Git. Cần Python với `PyMuPDF`, `Pillow`, Tesseract OCR và FFmpeg/FFprobe.
 
 ```powershell
 python -m pip install PyMuPDF Pillow
@@ -26,18 +63,15 @@ node scripts/validate-study-assets.mjs
 node scripts/deploy_lesson_audio.mjs --execute
 ```
 
-`build_web_course.py` tạo `course-pages/` và `lesson-data/`. `build_lesson_audio.py` tạo `lesson-audio.json` và sáu thư mục audio đã chuyển thành MP3 trong `SOURCE/audio-sites/`. Lệnh deploy audio tạo sáu repository công khai ở tài khoản GitHub `huyvulccd`, bật Pages và ghi `lesson-audio-sources.json`; nó dùng thông tin đăng nhập từ Git Credential Manager. Mỗi repo chỉ chứa audio của một cấp độ. Sau đó commit và push repository chính để xuất bản trang học.
+`build_web_course.py` tạo ảnh trang và dữ liệu bài học. `build_lesson_audio.py` tạo danh mục audio và các MP3 đã chuyển đổi. Script deploy audio xuất bản sáu repository Pages riêng theo cấp độ; trang chính chỉ tham chiếu URL của chúng.
 
 ## Kiểm tra
 
 ```powershell
-node --test tests/research-parser.test.mjs
+node --test tests/practice-core.test.mjs tests/research-parser.test.mjs
+node scripts/check-practice-browser.mjs
 node scripts/validate-study-assets.mjs
 node scripts/check-study-browser.mjs
 ```
 
-Bài kiểm tra trình duyệt cần Chrome và chạy qua máy chủ tĩnh cục bộ do script tự mở. Nó kiểm tra hiển thị trang, chuyển trang, ảnh, lưu câu trả lời và ghi chú, đánh dấu đã học và khôi phục sau khi tải lại.
-
-## Giới hạn
-
-GitHub Pages là hosting tĩnh. Tra cứu thông tin mới và tải audio chưa xem cần Internet. Bài tập trích từ OCR là gợi ý để người học tự trả lời; web không có đáp án chấm tự động. Các API từ điển hoặc dịch miễn phí có thể giới hạn lưu lượng, nên thông tin tra cứu cần được người học kiểm tra trước khi lưu.
+Hai bài kiểm tra trình duyệt dùng Chrome và tự mở một máy chủ tĩnh cục bộ. Bài kiểm tra trang mới đi qua bốn bước học từ, ghi âm và nghe lại, Shadowing, chép chính tả, lưu từ, hai prompt dịch. Bài kiểm tra giáo trình kiểm tra ảnh, tiến độ, câu trả lời, ghi chú và chuyển các cấp độ.

@@ -1,4 +1,5 @@
 SOURCE/
 .course-*.png
 .study-*.png
+.practice-*.png
 scripts/__pycache__/

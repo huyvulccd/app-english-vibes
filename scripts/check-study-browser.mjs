@@ -114,7 +114,7 @@ try {
     await waitUntil(() => evaluate(`document.querySelector('#lesson-title')?.textContent === ${JSON.stringify(student.title)} && document.querySelector('#page-image')?.naturalWidth > 0`));
     openedLevels.push(level);
   }
-  await send("Page.navigate", { url: `${origin}/index.html?practice=Hello%20from%20a%20lesson` });
+  await send("Page.navigate", { url: `${origin}/pronunciation.html?practice=Hello%20from%20a%20lesson` });
   try {
     await waitUntil(() => evaluate("JSON.parse(localStorage.getItem('sayback-items-v1') || '[]').some((item) => item.text === 'Hello from a lesson')"));
   } catch (error) {

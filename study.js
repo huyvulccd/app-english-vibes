@@ -408,7 +408,7 @@ ui.textSearch.addEventListener("input", () => {
 ui.practiceSelection.addEventListener("click", () => {
   const text = selectedText();
   if (!text) { ui.practiceSelection.textContent = "Hãy bôi đen một đoạn ở trên"; setTimeout(() => { ui.practiceSelection.textContent = "Luyện phát âm đoạn đã chọn ↗"; }, 2200); return; }
-  location.href = `./index.html?practice=${encodeURIComponent(text)}`;
+  location.href = `./pronunciation.html?practice=${encodeURIComponent(text)}`;
 });
 ui.speakSelection.addEventListener("click", () => {
   const text = selectedText();
