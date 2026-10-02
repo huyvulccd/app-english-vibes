@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { splitSegments, compareWords, nextReview, translationPrompt } from "../practice-core.mjs";
+import { splitSegments, compareWords, nextReview, translationPrompt, pickNewCards, buildReviewQueue, STAGES } from "../practice-core.mjs";
 
 test("splits news passages at clauses while keeping numbers together", () => {
   assert.deepEqual(splitSegments("The figure rose to 10,000 people, according to the report. It may rise again!"), [
@@ -29,4 +29,28 @@ test("translation prompts label both languages correctly", () => {
   assert.match(translationPrompt("en-vi", "Hello", "Xin chào"), /EN: Hello\nVI: Xin chào/);
   assert.match(translationPrompt("vi-en", "Xin chào", "Hello"), /VI: Xin chào\nEN: Hello/);
   assert.match(translationPrompt("vi-en", "Xin chào", "Hello"), /ngữ pháp, tổng thể/);
+});
+
+test("new cards are sampled from the less familiar frequency tiers", () => {
+  const cards = [
+    { word: "able", tier: 1 }, { word: "above", tier: 1 },
+    { word: "abolish", tier: 2 }, { word: "abruptly", tier: 3 }, { word: "abstain", tier: 4 },
+  ];
+  const picked = pickNewCards(cards, 3, () => 0.4);
+  assert.deepEqual(new Set(picked.map((card) => card.word)), new Set(["abolish", "abruptly", "abstain"]));
+});
+
+test("review tasks revisit each word across mixed questions without adjacent repeats", () => {
+  const cards = Array.from({ length: 10 }, (_, index) => ({ word: `word${index}` }));
+  for (let seed = 1; seed <= 100; seed++) {
+    let value = seed;
+    const random = () => ((value = (value * 1664525 + 1013904223) >>> 0) / 4294967296);
+    const tasks = buildReviewQueue(cards, random);
+    assert.equal(tasks.length, cards.length * STAGES.length);
+    assert.deepEqual(new Set(tasks.slice(0, cards.length).map((task) => task.stage)), new Set(["meaning"]));
+    for (let index = 1; index < tasks.length; index++) assert.notEqual(tasks[index].cardIndex, tasks[index - 1].cardIndex);
+    for (let cardIndex = 0; cardIndex < cards.length; cardIndex++) {
+      assert.deepEqual(tasks.filter((task) => task.cardIndex === cardIndex).map((task) => task.stage), STAGES);
+    }
+  }
 });

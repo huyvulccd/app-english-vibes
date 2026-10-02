@@ -1,17 +1,17 @@
-import { LEVELS, STAGES, splitSegments, tokenizeWords, normalizeWord, compareWords, nextReview, translationPrompt } from "./practice-core.mjs";
+import { LEVELS, splitSegments, tokenizeWords, normalizeWord, compareWords, nextReview, translationPrompt, pickNewCards, buildReviewQueue } from "./practice-core.mjs";
 import { normalizeArticleUrl, articleSource, articleSelectors, cleanArticleText } from "./reader-core.mjs";
 
 const $ = (id) => document.getElementById(id);
 const DATA_URLS = ["./vocabulary-data.json", "./news-data.json"];
 const KEYS = {
   reviews: "sayback-vocabulary-reviews-v1", custom: "sayback-vocabulary-custom-v1",
-  meanings: "sayback-vocabulary-meanings-v1", level: "sayback-vocabulary-level-v1",
+  meanings: "sayback-vocabulary-meanings-v1", definitions: "sayback-vocabulary-definitions-v1", level: "sayback-vocabulary-level-v1",
 };
 function readStore(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }
 function saveStore(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { showToast("Không lưu được tiến độ. Bộ nhớ trình duyệt có thể đã đầy."); return false; } }
 const state = {
-  vocabulary: [], news: [], reviews: readStore(KEYS.reviews, {}), custom: readStore(KEYS.custom, []), meanings: readStore(KEYS.meanings, {}),
-  level: localStorage.getItem(KEYS.level) || "B1", view: "vocabulary", session: null, selectedWord: null,
+  vocabulary: [], news: [], reviews: readStore(KEYS.reviews, {}), custom: readStore(KEYS.custom, []), meanings: readStore(KEYS.meanings, {}), definitions: readStore(KEYS.definitions, {}),
+  level: localStorage.getItem(KEYS.level) || "B2", view: "vocabulary", session: null, selectedWord: null,
   shadowArticle: null, shadowIndex: 0, shadowRecordings: new Map(),
   dictationArticle: null, dictationIndex: 0, dictationSpeed: 1, dictationAnswers: new Map(), dictationResults: null,
   translationDirection: "en-vi", translationArticle: null, translationDrafts: new Map(),
@@ -33,8 +33,13 @@ function node(tag, className, text) {
 }
 function compactMeaning(value) { return String(value || "").split(";")[0].trim(); }
 function cardKey(card) { return normalizeWord(card.word); }
+function cardDefinitions(card) {
+  const stored = state.definitions[cardKey(card)];
+  const values = Array.isArray(stored) ? stored : Array.isArray(card.definitions) ? card.definitions : card.definition ? [card.definition] : [];
+  return values.map((value) => String(value || "").trim()).filter(Boolean).slice(0, 2);
+}
 function cardList() {
-  return [...state.vocabulary, ...state.custom].map((card) => ({ ...card, meaning: state.meanings[cardKey(card)] || card.meaning }));
+  return [...state.vocabulary, ...state.custom].map((card) => ({ ...card, meaning: state.meanings[cardKey(card)] || card.meaning, definitions: cardDefinitions(card) }));
 }
 function findCard(word) { return cardList().find((card) => cardKey(card) === normalizeWord(word)); }
 function shuffle(items) {
@@ -100,7 +105,7 @@ function renderWordResults() {
     button.type = "button";
     button.dataset.word = card.word;
     const copy = node("span");
-    copy.append(node("strong", "", card.word), node("small", "", compactMeaning(card.meaning)));
+    copy.append(node("strong", "", card.word), node("small", "", compactMeaning(card.meaning)), node("small", "word-definition", cardDefinitions(card).join(" · ") || "Thêm định nghĩa tiếng Anh"));
     const status = state.reviews[cardKey(card)] ? "Đang ôn" : card.pos || "Xem";
     button.append(copy, node("em", "", status));
     list.append(button);
@@ -111,19 +116,20 @@ function selectReviewCards() {
   const now = Date.now();
   const cards = levelCards();
   const due = cards.filter((card) => state.reviews[cardKey(card)]?.due <= now).sort((a, b) => state.reviews[cardKey(a)].due - state.reviews[cardKey(b)].due);
-  const fresh = cards.filter((card) => !state.reviews[cardKey(card)]).sort((a, b) => (a.tier || 9) - (b.tier || 9) || (b.frequency || 0) - (a.frequency || 0));
-  return [...due.slice(0, 10), ...fresh.slice(0, Math.max(0, 10 - due.length))];
+  const fresh = cards.filter((card) => !state.reviews[cardKey(card)]);
+  return [...due.slice(0, 10), ...pickNewCards(fresh, Math.max(0, 10 - due.length))];
 }
 function startReview() {
   const cards = selectReviewCards();
   if (!cards.length) { showToast("Chưa có từ đến hạn. Hãy tìm và thêm một từ ở kho bên phải."); return; }
-  state.session = { cards, index: 0, stage: 0, answered: false, wrong: false, completed: 0, errors: 0 };
+  state.session = { cards, tasks: buildReviewQueue(cards), cursor: 0, answered: false, wrongWords: new Set(), completed: 0, errors: 0 };
   $("review-overview").hidden = true;
   $("review-finished").hidden = true;
   $("review-session").hidden = false;
   renderQuestion();
 }
-function currentCard() { return state.session?.cards[state.session.index]; }
+function currentTask() { return state.session?.tasks[state.session.cursor]; }
+function currentCard() { const task = currentTask(); return task ? state.session.cards[task.cardIndex] : null; }
 function makeOptions(card, type) {
   const target = type === "meaning" ? compactMeaning(card.meaning) : card.word;
   const pool = levelCards().filter((item) => item.word !== card.word && item.pos === card.pos);
@@ -147,17 +153,23 @@ function makeOptions(card, type) {
 }
 async function renderQuestion() {
   const session = state.session;
+  const task = currentTask();
   const card = currentCard();
-  if (!session || !card) return;
-  const stage = STAGES[session.stage];
+  if (!session || !task || !card) return;
+  const stage = task.stage;
   session.answered = false;
-  $("session-position").textContent = `${session.index + 1} / ${session.cards.length}`;
-  $("session-stage").textContent = `${session.stage + 1} / 4 · ${{ meaning: "Chọn nghĩa", listening: "Nghe từ", spelling: "Viết từ", pronunciation: "Phát âm" }[stage]}`;
-  $("session-meter-fill").style.width = `${((session.index * 4 + session.stage) / (session.cards.length * 4)) * 100}%`;
+  $("session-position").textContent = `${session.cursor + 1} / ${session.tasks.length}`;
+  $("session-stage").textContent = `${card.level} · ${{ meaning: "Chọn nghĩa", listening: "Nghe từ", spelling: "Viết từ", pronunciation: "Phát âm" }[stage]}`;
+  $("session-meter-fill").style.width = `${(session.cursor / session.tasks.length) * 100}%`;
   $("choice-options").hidden = !["meaning", "listening"].includes(stage);
   $("spelling-form").hidden = stage !== "spelling";
   $("pronunciation-tools").hidden = stage !== "pronunciation";
   $("question-speak").hidden = stage === "meaning" || stage === "spelling";
+  const definitions = cardDefinitions(card);
+  const definitionBox = $("question-definitions");
+  definitionBox.hidden = stage === "listening" || !definitions.length;
+  const definitionList = $("question-definitions-list");
+  definitionList.replaceChildren(...definitions.map((value) => node("li", "", value)));
   $("answer-feedback").hidden = true;
   $("answer-feedback").classList.remove("incorrect");
   $("next-question").hidden = true;
@@ -198,15 +210,18 @@ function checkAnswer(answer) {
   const session = state.session;
   if (!session || session.answered) return;
   const card = currentCard();
-  const stage = STAGES[session.stage];
+  const stage = currentTask().stage;
   const correctAnswer = stage === "meaning" ? compactMeaning(card.meaning) : card.word;
   const correct = normalizeWord(answer) === normalizeWord(correctAnswer);
   session.answered = true;
-  if (!correct) { session.wrong = true; session.errors++; }
+  if (!correct) { session.wrongWords.add(cardKey(card)); session.errors++; }
   const feedback = $("answer-feedback");
   feedback.hidden = false;
   feedback.classList.toggle("incorrect", !correct);
-  feedback.textContent = correct ? `Đúng rồi. ${card.word} — ${card.meaning}` : `Chưa đúng. Đáp án: ${correctAnswer}. ${card.word} — ${card.meaning}`;
+  const message = correct ? `Đúng rồi. ${card.word} — ${card.meaning}` : `Chưa đúng. Đáp án: ${correctAnswer}. ${card.word} — ${card.meaning}`;
+  feedback.replaceChildren(node("span", "", message));
+  const definitions = cardDefinitions(card);
+  if (definitions.length) feedback.append(node("span", "feedback-definition", `English: ${definitions.join(" · ")}`));
   if (stage !== "spelling") $("choice-options").querySelectorAll("button").forEach((button) => {
     button.disabled = true;
     button.classList.toggle("correct", normalizeWord(button.dataset.option) === normalizeWord(correctAnswer));
@@ -217,7 +232,7 @@ function checkAnswer(answer) {
 }
 function nextStage() {
   if (!state.session?.answered) return;
-  state.session.stage++;
+  state.session.cursor++;
   renderQuestion();
 }
 function completeCard(rating) {
@@ -225,15 +240,13 @@ function completeCard(rating) {
   if (!session) return;
   const card = currentCard();
   const key = cardKey(card);
-  const finalRating = session.wrong ? "again" : rating;
+  const finalRating = session.wrongWords.has(key) ? "again" : rating;
   state.reviews[key] = nextReview(state.reviews[key], finalRating);
   saveStore(KEYS.reviews, state.reviews);
   session.completed++;
-  session.index++;
-  session.stage = 0;
-  session.wrong = false;
+  session.cursor++;
   updateVocabulary();
-  if (session.index >= session.cards.length) {
+  if (session.cursor >= session.tasks.length) {
     $("review-session").hidden = true;
     $("review-finished").hidden = false;
     $("finished-count").textContent = String(session.completed);
@@ -247,16 +260,20 @@ function openWord(word) {
   state.selectedWord = card.word;
   $("dialog-level").textContent = `${card.level} · ${card.pos || "TỪ VỰNG"}`;
   $("dialog-word").textContent = card.word;
-  $("dialog-definition").textContent = card.definition || "Nghĩa gợi ý có thể được sửa trước khi học.";
+  $("dialog-english").value = cardDefinitions(card).join("\n");
   $("dialog-meaning").value = card.meaning;
   $("word-dialog").showModal();
 }
 function saveWordDialog() {
   const card = findCard(state.selectedWord);
   const meaning = $("dialog-meaning").value.trim();
+  const definitions = $("dialog-english").value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
   if (!card || !meaning) { showToast("Hãy nhập nghĩa tiếng Việt."); return; }
+  if (!definitions.length || definitions.length > 2) { showToast("Hãy nhập một hoặc hai nghĩa / câu định nghĩa tiếng Anh."); return; }
   state.meanings[cardKey(card)] = meaning;
+  state.definitions[cardKey(card)] = definitions;
   saveStore(KEYS.meanings, state.meanings);
+  saveStore(KEYS.definitions, state.definitions);
   const previous = state.reviews[cardKey(card)];
   state.reviews[cardKey(card)] = { ...(previous || {}), due: Date.now() - 1 };
   saveStore(KEYS.reviews, state.reviews);
@@ -264,14 +281,17 @@ function saveWordDialog() {
   updateVocabulary();
   showToast(`Đã đưa “${card.word}” vào lượt ôn.`);
 }
-function addCustomWord(word, meaning, level = state.level, source = "custom") {
+function addCustomWord(word, meaning, level = state.level, source = "custom", definitions = []) {
   const cleanWord = normalizeWord(word);
   if (!/^[a-z][a-z'-]{0,35}$/i.test(cleanWord) || !meaning.trim()) return false;
+  const cleanDefinitions = definitions.map((value) => String(value || "").trim()).filter(Boolean).slice(0, 2);
   const existing = findCard(cleanWord);
   if (existing) state.meanings[cleanWord] = meaning.trim();
-  else state.custom.push({ word: cleanWord, meaning: meaning.trim(), level: LEVELS.includes(level) ? level : "B1", pos: "word", definition: source === "dictation" ? "Từ lưu từ bài chép chính tả" : "Từ do bạn thêm", source });
+  else state.custom.push({ word: cleanWord, meaning: meaning.trim(), level: LEVELS.includes(level) ? level : "B2", pos: "word", definition: cleanDefinitions[0] || "", definitions: cleanDefinitions, source });
+  if (cleanDefinitions.length) state.definitions[cleanWord] = cleanDefinitions;
   saveStore(KEYS.custom, state.custom);
   saveStore(KEYS.meanings, state.meanings);
+  if (cleanDefinitions.length) saveStore(KEYS.definitions, state.definitions);
   state.reviews[cleanWord] = { ...(state.reviews[cleanWord] || {}), due: Date.now() - 1 };
   saveStore(KEYS.reviews, state.reviews);
   return true;
@@ -312,7 +332,7 @@ async function showSavedVocabRecording(word) {
   playback.hidden = true;
   try {
     const blob = await getVocabRecording(word);
-    if (blob && currentCard()?.word === word && STAGES[state.session.stage] === "pronunciation") {
+    if (blob && currentCard()?.word === word && currentTask()?.stage === "pronunciation") {
       state.vocabUrl = URL.createObjectURL(blob);
       playback.src = state.vocabUrl;
       playback.hidden = false;
@@ -649,7 +669,13 @@ function renderUnknownWords(article, comparisons) {
     meaning.value = card?.meaning || "";
     meaning.placeholder = "Nhập nghĩa tiếng Việt";
     meaning.setAttribute("aria-label", `Nghĩa của ${word}`);
-    body.append(meaning);
+    const definition = node("input");
+    definition.type = "text";
+    definition.className = "unknown-definition";
+    definition.value = cardDefinitions(card || {}).join(" · ");
+    definition.placeholder = "Định nghĩa tiếng Anh";
+    definition.setAttribute("aria-label", `Định nghĩa tiếng Anh của ${word}`);
+    body.append(meaning, definition);
     label.append(checkbox, body);
     list.append(label);
   }
@@ -694,12 +720,15 @@ function saveUnknownWords() {
   if (!selected.length) { $("save-unknown-status").textContent = "Hãy tích ít nhất một từ."; return; }
   const missing = selected.find((row) => !row.querySelector("input[type=text]").value.trim());
   if (missing) { missing.querySelector("input[type=text]").focus(); $("save-unknown-status").textContent = "Nhập nghĩa cho các từ đã chọn."; return; }
+  const missingDefinition = selected.find((row) => !row.querySelector(".unknown-definition").value.trim());
+  if (missingDefinition) { missingDefinition.querySelector(".unknown-definition").focus(); $("save-unknown-status").textContent = "Nhập định nghĩa tiếng Anh cho các từ đã chọn."; return; }
   let saved = 0;
   for (const row of selected) {
     const word = row.querySelector("input[type=checkbox]").value;
     const meaning = row.querySelector("input[type=text]").value;
+    const definitions = row.querySelector(".unknown-definition").value.split(/\s*·\s*|\s*;\s*/).map((value) => value.trim()).filter(Boolean).slice(0, 2);
     const existing = findCard(word);
-    if (addCustomWord(word, meaning, existing?.level || "B1", "dictation")) saved++;
+    if (addCustomWord(word, meaning, existing?.level || state.level, "dictation", definitions)) saved++;
   }
   $("save-unknown-status").textContent = `Đã lưu ${saved} từ vào lịch ôn.`;
   selected.forEach((row) => { row.querySelector("input[type=checkbox]").checked = false; });
@@ -787,8 +816,11 @@ $("dialog-save").addEventListener("click", saveWordDialog);
 $("add-word-form").addEventListener("submit", (event) => {
   event.preventDefault();
   const word = $("custom-word").value, meaning = $("custom-meaning").value;
-  if (!addCustomWord(word, meaning, $("custom-level").value)) { showToast("Chỉ nhập một từ tiếng Anh và một nghĩa tiếng Việt."); return; }
+  const definitions = $("custom-definition").value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+  if (!definitions.length || definitions.length > 2) { showToast("Hãy nhập một hoặc hai định nghĩa tiếng Anh."); return; }
+  if (!addCustomWord(word, meaning, $("custom-level").value, "custom", definitions)) { showToast("Chỉ nhập một từ tiếng Anh và một nghĩa tiếng Việt."); return; }
   $("add-word-form").reset();
+  $("custom-level").value = state.level;
   updateVocabulary();
   showToast(`Đã thêm “${normalizeWord(word)}” vào lịch ôn.`);
 });
@@ -896,7 +928,7 @@ async function init() {
     state.vocabulary = Array.isArray(vocabulary.cards) ? vocabulary.cards : [];
     state.news = Array.isArray(news.items) ? news.items : [];
     if (!state.vocabulary.length || !state.news.length) throw new Error("Dữ liệu học đang trống.");
-    if (!LEVELS.includes(state.level)) state.level = "B1";
+    if (!LEVELS.includes(state.level)) state.level = "B2";
     migrateLegacyWords();
     updateVocabulary();
     state.shadowArticle = fillArticleSelect("shadow-article", "en");

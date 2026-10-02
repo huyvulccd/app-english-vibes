@@ -102,10 +102,16 @@ await Promise.all(Array.from({ length: 8 }, async () => {
       if (!targets.has(word) || !Array.isArray(entry.senses_vi)) continue;
       const meaning = entry.senses_vi.find((value) => typeof value === "string" && value.trim().length >= 2 && value.trim().length <= 160)?.trim();
       if (!meaning) continue;
+      const english = [...(Array.isArray(entry.senses_en) ? entry.senses_en : []), ...(Array.isArray(entry.gloss_en) ? entry.gloss_en : [])]
+        .filter((value) => typeof value === "string")
+        .map((value) => value.replace(/\s+/g, " ").trim())
+        .filter((value) => value.length >= 3 && value.length <= 240);
+      const definitions = [...new Map(english.map((value) => [value.toLowerCase(), value])).values()].slice(0, 2);
+      if (!definitions.length) continue;
       const wanted = targets.get(word);
       const candidate = {
         word, level: wanted.level, pos: posKey(entry.pos), meaning,
-        definition: String(entry.gloss_en?.[0] || "").slice(0, 170),
+        definition: definitions[0], definitions,
         confidence: entry.extra?.llm_confidence || "unknown",
         frequency: Number(entry.freq) || 0,
         tier: Number(entry.freq_tier) || 9,

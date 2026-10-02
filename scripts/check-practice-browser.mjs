@@ -63,23 +63,48 @@ try {
   const initial = await evaluate("({ count: document.querySelector('#vocab-total').textContent, news: document.querySelector('#shadow-article').options.length, levels: document.querySelectorAll('.level-switch button').length })");
   if (initial.levels !== 4 || initial.news !== news.items.filter((item) => item.language === "en").length) throw new Error(`Data mismatch: ${JSON.stringify(initial)}`);
 
-  const chosen = vocabulary.cards.find((item) => item.word === "abandon") || vocabulary.cards[0];
+  const chosen = vocabulary.cards.find((item) => item.word === "abolish");
+  if (!chosen || chosen.level !== "B2") throw new Error("Missing B2 test word");
+  const meaningOverride = "bãi bỏ kiểm thử";
+  const englishOverride = "to officially end a law or system\nto put an end to an established practice";
   await evaluate(`(() => { const search = document.querySelector('#word-search'); search.value = ${JSON.stringify(chosen.word)}; search.dispatchEvent(new Event('input', { bubbles: true })); document.querySelector('[data-word="${chosen.word}"]').click(); })()`);
-  await evaluate("(() => { document.querySelector('#dialog-meaning').value = 'rời bỏ'; document.querySelector('#dialog-save').click(); document.querySelector('#start-review').click(); })()");
-  await waitUntil(() => evaluate(`document.querySelector('#question-title')?.textContent === ${JSON.stringify(chosen.word)}`));
-  await evaluate("(() => { const options = [...document.querySelectorAll('#choice-options button')]; options.find((item) => item.textContent === 'rời bỏ').click(); document.querySelector('#next-question').click(); })()");
-  await evaluate(`(() => { [...document.querySelectorAll('#choice-options button')].find((item) => item.textContent === ${JSON.stringify(chosen.word)}).click(); document.querySelector('#next-question').click(); })()`);
-  await evaluate(`(() => { const field = document.querySelector('#spelling-input'); field.value = ${JSON.stringify(chosen.word)}; document.querySelector('#spelling-form').requestSubmit(); document.querySelector('#next-question').click(); })()`);
-  await waitUntil(() => evaluate("document.querySelector('#pronunciation-tools')?.hidden === false"));
-  await evaluate("document.querySelector('#vocab-record').click()");
-  await waitUntil(() => evaluate("document.querySelector('#vocab-record')?.textContent.includes('Dừng ghi')"));
-  await delay(700);
-  await evaluate("document.querySelector('#vocab-record').click()");
-  try { await waitUntil(() => evaluate("document.querySelector('#vocab-recording')?.hidden === false")); }
-  catch (error) { throw new Error(`${error.message}; recording=${JSON.stringify(await evaluate("({ status: document.querySelector('#vocab-record-status').textContent, button: document.querySelector('#vocab-record').textContent, playback: document.querySelector('#vocab-recording').outerHTML })"))}`); }
-  await evaluate("document.querySelector('[data-rating=good]').click()");
-  const review = await evaluate(`({ due: JSON.parse(localStorage.getItem('sayback-vocabulary-reviews-v1'))?.[${JSON.stringify(chosen.word)}]?.due, meaning: JSON.parse(localStorage.getItem('sayback-vocabulary-meanings-v1'))?.[${JSON.stringify(chosen.word)}] })`);
-  if (!review.due || review.meaning !== "rời bỏ") throw new Error(`Vocabulary review not saved: ${JSON.stringify(review)}`);
+  await evaluate(`(() => { document.querySelector('#dialog-meaning').value = ${JSON.stringify(meaningOverride)}; document.querySelector('#dialog-english').value = ${JSON.stringify(englishOverride)}; document.querySelector('#dialog-save').click(); document.querySelector('#start-review').click(); })()`);
+  await waitUntil(() => evaluate("document.querySelector('#session-position')?.textContent.includes('/ 40')"));
+  const meaningWords = [];
+  let recordedChosen = false;
+  for (let question = 0; question < 40; question++) {
+    const state = await evaluate("({ position: document.querySelector('#session-position').textContent, stage: document.querySelector('#session-stage').textContent, title: document.querySelector('#question-title').textContent, definitionVisible: !document.querySelector('#question-definitions').hidden, definitionCount: document.querySelectorAll('#question-definitions-list li').length })");
+    if (Number(state.position.split(" /")[0]) !== question + 1) throw new Error(`Question order failed: ${JSON.stringify(state)}`);
+    if (state.stage.includes("Chọn nghĩa")) {
+      meaningWords.push(state.title);
+      if (!state.definitionVisible || !state.definitionCount || state.definitionCount > 2) throw new Error(`Missing English definitions: ${JSON.stringify(state)}`);
+      await evaluate(`(() => { const buttons = [...document.querySelectorAll('#choice-options button')]; (buttons.find((button) => button.textContent === ${JSON.stringify(state.title === chosen.word ? meaningOverride : "__none__")}) || buttons[0]).click(); document.querySelector('#next-question').click(); })()`);
+    } else if (state.stage.includes("Nghe từ")) {
+      if (state.definitionVisible) throw new Error("Listening question revealed the definition before the answer");
+      await evaluate("document.querySelector('#choice-options button').click(); document.querySelector('#next-question').click()");
+    } else if (state.stage.includes("Viết từ")) {
+      await evaluate(`(() => { document.querySelector('#spelling-input').value = ${JSON.stringify(state.title === meaningOverride ? chosen.word : "test")}; document.querySelector('#spelling-form').requestSubmit(); document.querySelector('#next-question').click(); })()`);
+    } else if (state.stage.includes("Phát âm")) {
+      if (state.title === chosen.word) {
+        await evaluate("document.querySelector('#vocab-record').click()");
+        await waitUntil(() => evaluate("document.querySelector('#vocab-record')?.textContent.includes('Dừng ghi')"));
+        await delay(700);
+        await evaluate("document.querySelector('#vocab-record').click()");
+        try { await waitUntil(() => evaluate("document.querySelector('#vocab-recording')?.hidden === false")); }
+        catch (error) { throw new Error(`${error.message}; recording=${JSON.stringify(await evaluate("({ status: document.querySelector('#vocab-record-status').textContent, button: document.querySelector('#vocab-record').textContent, playback: document.querySelector('#vocab-recording').outerHTML })"))}`); }
+        recordedChosen = true;
+      }
+      await evaluate("document.querySelector('[data-rating=good]').click()");
+    } else throw new Error(`Unexpected vocabulary stage: ${JSON.stringify(state)}`);
+    if (question < 39) await waitUntil(() => evaluate(`document.querySelector('#session-position')?.textContent.startsWith('${question + 2} /')`));
+  }
+  if (!recordedChosen || new Set(meaningWords).size !== 10 || !(await evaluate("document.querySelector('#review-finished').hidden === false"))) throw new Error(`Incomplete mixed review: ${JSON.stringify({ recordedChosen, meaningWords })}`);
+  for (const word of meaningWords.filter((word) => word !== chosen.word)) {
+    const card = vocabulary.cards.find((item) => item.word === word);
+    if (!card || card.tier < 2 || card.tier > 4 || card.word.length < 5) throw new Error(`Easy new word selected: ${word}`);
+  }
+  const review = await evaluate(`({ due: JSON.parse(localStorage.getItem('sayback-vocabulary-reviews-v1'))?.[${JSON.stringify(chosen.word)}]?.due, meaning: JSON.parse(localStorage.getItem('sayback-vocabulary-meanings-v1'))?.[${JSON.stringify(chosen.word)}], definitions: JSON.parse(localStorage.getItem('sayback-vocabulary-definitions-v1'))?.[${JSON.stringify(chosen.word)}] })`);
+  if (!review.due || review.meaning !== meaningOverride || review.definitions?.length !== 2) throw new Error(`Vocabulary review not saved: ${JSON.stringify(review)}`);
 
   await evaluate("document.querySelector('[data-view=shadowing]').click()");
   await waitUntil(() => evaluate("document.querySelector('#shadow-text')?.textContent.length > 20"));
@@ -98,7 +123,7 @@ try {
   await evaluate("document.querySelector('#dictation-finish').click()");
   const dictation = await evaluate("({ score: document.querySelector('#dictation-accuracy').textContent, errors: document.querySelectorAll('.word-error').length, words: document.querySelectorAll('.unknown-row').length })");
   if (dictation.score === "100%" || !dictation.errors || !dictation.words) throw new Error(`Dictation result invalid: ${JSON.stringify(dictation)}`);
-  await evaluate("(() => { const row = document.querySelector('.unknown-row'); row.querySelector('input[type=checkbox]').checked = true; row.querySelector('input[type=text]').value = 'nghĩa kiểm thử'; document.querySelector('#save-unknown').click(); })()");
+  await evaluate("(() => { const row = document.querySelector('.unknown-row'); row.querySelector('input[type=checkbox]').checked = true; row.querySelector('input[type=text]').value = 'nghĩa kiểm thử'; row.querySelector('.unknown-definition').value = 'an English meaning for this word'; document.querySelector('#save-unknown').click(); })()");
   if (!(await evaluate("document.querySelector('#save-unknown-status').textContent.includes('Đã lưu 1 từ')"))) throw new Error("Unknown word was not saved");
   const savedUnknownWord = await evaluate("document.querySelector('.unknown-row input[type=checkbox]').value");
 
@@ -115,13 +140,14 @@ try {
   const persisted = await evaluate(`(async () => {
     const reviews = JSON.parse(localStorage.getItem('sayback-vocabulary-reviews-v1') || '{}');
     const meanings = JSON.parse(localStorage.getItem('sayback-vocabulary-meanings-v1') || '{}');
+    const definitions = JSON.parse(localStorage.getItem('sayback-vocabulary-definitions-v1') || '{}');
     const request = indexedDB.open('sayback-practice-recordings-v1');
     const db = await new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
     const transaction = db.transaction('vocabulary', 'readonly');
     const recording = await new Promise((resolve, reject) => { const item = transaction.objectStore('vocabulary').get(${JSON.stringify(chosen.word)}); item.onsuccess = () => resolve(item.result); item.onerror = () => reject(item.error); });
-    return { chosenDue: reviews[${JSON.stringify(chosen.word)}]?.due, unknownDue: reviews[${JSON.stringify(savedUnknownWord)}]?.due, meaning: meanings[${JSON.stringify(chosen.word)}], recordingSize: recording?.size || 0, shadowCount: document.querySelector('#shadow-record-count').textContent };
+    return { chosenDue: reviews[${JSON.stringify(chosen.word)}]?.due, unknownDue: reviews[${JSON.stringify(savedUnknownWord)}]?.due, unknownDefinition: definitions[${JSON.stringify(savedUnknownWord)}]?.[0], meaning: meanings[${JSON.stringify(chosen.word)}], definitions: definitions[${JSON.stringify(chosen.word)}], recordingSize: recording?.size || 0, shadowCount: document.querySelector('#shadow-record-count').textContent };
   })()`);
-  if (!persisted.chosenDue || !persisted.unknownDue || persisted.meaning !== "rời bỏ" || !persisted.recordingSize || persisted.shadowCount !== "0") throw new Error(`Persistence failed: ${JSON.stringify(persisted)}`);
+  if (!persisted.chosenDue || !persisted.unknownDue || persisted.unknownDefinition !== "an English meaning for this word" || persisted.meaning !== meaningOverride || persisted.definitions?.length !== 2 || !persisted.recordingSize || persisted.shadowCount !== "0") throw new Error(`Persistence failed: ${JSON.stringify(persisted)}`);
 
   let online;
   if (process.env.PRACTICE_ONLINE === "1") {
@@ -165,6 +191,13 @@ try {
     await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
     const mobile = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
     await writeFile(path.join(root, ".practice-mobile.png"), Buffer.from(mobile.data, "base64"));
+    await evaluate("document.querySelector('[data-view=vocabulary]').click(); document.querySelector('#start-review').click()");
+    await waitUntil(() => evaluate("document.querySelector('#question-definitions')?.hidden === false"));
+    const vocabMobile = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+    await writeFile(path.join(root, ".practice-vocab-mobile.png"), Buffer.from(vocabMobile.data, "base64"));
+    await send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+    const vocabDesktop = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+    await writeFile(path.join(root, ".practice-vocab-desktop.png"), Buffer.from(vocabDesktop.data, "base64"));
   }
   if (errors.length) throw new Error(`Browser exceptions: ${errors.join(" | ")}`);
   console.log(JSON.stringify({ initial, reviewSaved: true, shadowRecordingRetained: true, dictation, translationPrompts: true, persisted, online, browserErrors: errors.length }, null, 2));

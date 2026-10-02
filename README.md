@@ -6,14 +6,14 @@ Web học tiếng Anh chạy trên GitHub Pages: <https://huyvulccd.github.io/ap
 
 ### Từ vựng B1–C2
 
-Kho có 3.947 từ: B1 (1.125), B2 (1.444), C1 (710), C2 (668). Mỗi lượt lấy tối đa 10 từ đến hạn hoặc từ mới. Mỗi từ đi qua bốn bước:
+Kho có 3.947 từ: B1 (1.125), B2 (1.444), C1 (710), C2 (668). Mặc định mở cấp B2 cho người học mới; lựa chọn cấp độ đã lưu trong trình duyệt vẫn được giữ. Mỗi lượt lấy tối đa 10 từ đến hạn hoặc từ mới. Từ mới được chọn ngẫu nhiên, ưu tiên từ dài hơn và không thuộc nhóm dễ nhất của cấp độ. Mỗi từ có một hoặc hai định nghĩa/câu giải thích bằng tiếng Anh và được hỏi qua bốn dạng:
 
 1. Nhìn từ tiếng Anh và chọn nghĩa tiếng Việt trong bốn đáp án.
 2. Nghe từ bằng giọng đọc của trình duyệt và chọn một trong bốn từ tiếng Anh.
 3. Nhìn nghĩa tiếng Việt và viết lại từ tiếng Anh.
 4. Nghe mẫu, ghi âm, nghe lại và tự đánh giá phát âm.
 
-Từ trả lời sai được hẹn ôn lại sau một phút. Từ trả lời đúng được hẹn theo khoảng ngày tăng dần, tùy mức tự đánh giá. Người học có thể tìm từ, sửa nghĩa, thêm từ riêng. Tiến độ và nghĩa đã sửa lưu trong `localStorage`; bản ghi âm từ vựng lưu trong `IndexedDB` của trình duyệt.
+Buổi học xáo trộn nhiều từ trước khi chuyển sang dạng câu hỏi tiếp theo; cùng một từ không xuất hiện ngay ở câu kế. Từ trả lời sai được hẹn ôn lại sau một phút. Từ trả lời đúng được hẹn theo khoảng ngày tăng dần, tùy mức tự đánh giá. Người học có thể tìm từ, sửa nghĩa tiếng Việt và định nghĩa tiếng Anh, thêm từ riêng. Tiến độ, nghĩa và định nghĩa đã sửa lưu trong `localStorage`; bản ghi âm từ vựng lưu trong `IndexedDB` của trình duyệt.
 
 Cấp độ từ lấy từ [CEFR-J Vocabulary Profile và Octanove C1/C2](https://github.com/openlanguageprofiles/olp-en-cefrj). Nghĩa tiếng Việt lấy từ [thichhoc-dict](https://github.com/thichhoc-org/thichhoc-dict). Nghĩa do AI tạo ở nguồn, vì vậy nên kiểm tra và sửa trước khi học. Thông tin giấy phép và ghi nguồn ở [`VOCABULARY-LICENSE.md`](VOCABULARY-LICENSE.md).
 
@@ -23,7 +23,7 @@ Chọn tin tiếng Anh của BBC News, Viet Nam News hoặc VnExpress Internatio
 
 ### Chép chính tả
 
-Dùng cùng cách chọn bài tiếng Anh, gồm tải toàn bài online, dán link hoặc lấy ngẫu nhiên. Nghe từng đoạn ở tốc độ 1× hoặc 0,75×, viết câu trả lời, chuyển đoạn mà không mất phần đã viết trong phiên. Khi kết thúc, trang đối chiếu từng từ, tô đỏ từ sai/thiếu, gạch từ viết thêm và hiển thị tỷ lệ chính xác toàn bài. Từ trong bài được liệt kê để người học tích chọn, nhập hoặc sửa nghĩa và đưa vào lịch ôn từ vựng. Bài chép đang làm chỉ được giữ trong phiên mở trang.
+Dùng cùng cách chọn bài tiếng Anh, gồm tải toàn bài online, dán link hoặc lấy ngẫu nhiên. Nghe từng đoạn ở tốc độ 1× hoặc 0,75×, viết câu trả lời, chuyển đoạn mà không mất phần đã viết trong phiên. Khi kết thúc, trang đối chiếu từng từ, tô đỏ từ sai/thiếu, gạch từ viết thêm và hiển thị tỷ lệ chính xác toàn bài. Từ trong bài được liệt kê để người học tích chọn, nhập hoặc sửa nghĩa tiếng Việt và định nghĩa tiếng Anh, rồi đưa vào lịch ôn từ vựng. Bài chép đang làm chỉ được giữ trong phiên mở trang.
 
 ### Dịch Anh ↔ Việt
 
@@ -75,4 +75,4 @@ node scripts/validate-study-assets.mjs
 node scripts/check-study-browser.mjs
 ```
 
-Hai bài kiểm tra trình duyệt dùng Chrome và tự mở một máy chủ tĩnh cục bộ. Bài kiểm tra trang mới đi qua bốn bước học từ, ghi âm và nghe lại, Shadowing, chép chính tả, lưu từ, hai prompt dịch. `PRACTICE_ONLINE=1` còn kiểm tra tải bài BBC/Viet Nam News/VnExpress và lấy ngẫu nhiên qua mạng. Bài kiểm tra giáo trình kiểm tra ảnh, tiến độ, câu trả lời, ghi chú và chuyển các cấp độ.
+Hai bài kiểm tra trình duyệt dùng Chrome và tự mở một máy chủ tĩnh cục bộ. Bài kiểm tra trang mới đi qua 40 câu hỏi từ vựng xáo trộn, ghi âm và nghe lại, Shadowing, chép chính tả, lưu từ, hai prompt dịch. `PRACTICE_ONLINE=1` còn kiểm tra tải bài BBC/Viet Nam News/VnExpress và lấy ngẫu nhiên qua mạng. Bài kiểm tra giáo trình kiểm tra ảnh, tiến độ, câu trả lời, ghi chú và chuyển các cấp độ.

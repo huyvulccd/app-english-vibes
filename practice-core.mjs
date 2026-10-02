@@ -1,6 +1,54 @@
 export const LEVELS = ["B1", "B2", "C1", "C2"];
 export const STAGES = ["meaning", "listening", "spelling", "pronunciation"];
 
+function shuffled(items, random) {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index--) {
+    const next = Math.floor(random() * (index + 1));
+    [result[index], result[next]] = [result[next], result[index]];
+  }
+  return result;
+}
+
+export function pickNewCards(cards, count, random = Math.random) {
+  const preferred = cards.filter((card) => Number(card.tier) >= 2 && Number(card.tier) <= 4 && card.word.length >= 5);
+  const remaining = cards.filter((card) => !preferred.includes(card));
+  return [...shuffled(preferred, random), ...shuffled(remaining, random)].slice(0, count);
+}
+
+export function buildReviewQueue(cards, random = Math.random) {
+  if (!cards.length) return [];
+  const indices = shuffled(cards.map((_, index) => index), random);
+  const tasks = indices.map((cardIndex) => ({ cardIndex, stage: STAGES[0] }));
+  const progress = cards.map(() => 1);
+  const recent = indices.slice(-Math.min(4, cards.length - 1));
+  while (progress.some((stage) => stage < STAGES.length)) {
+    const active = indices.filter((index) => progress[index] < STAGES.length);
+    const safe = active.filter((candidate) => {
+      if (candidate === tasks.at(-1).cardIndex && active.length > 1) return false;
+      const total = active.reduce((sum, index) => sum + STAGES.length - progress[index], 0) - 1;
+      return active.every((index) => {
+        const remaining = STAGES.length - progress[index] - Number(index === candidate);
+        return remaining <= total - remaining + Number(index !== candidate);
+      });
+    });
+    const spaced = safe.filter((index) => !recent.includes(index));
+    const choices = spaced.length ? spaced : safe.length ? safe : active;
+    const weights = choices.map((index) => 1 + (STAGES.length - progress[index]) * 3);
+    const total = weights.reduce((sum, weight) => sum + weight, 0);
+    let target = random() * total;
+    let picked = choices.at(-1);
+    for (let index = 0; index < choices.length; index++) {
+      target -= weights[index];
+      if (target < 0) { picked = choices[index]; break; }
+    }
+    tasks.push({ cardIndex: picked, stage: STAGES[progress[picked]++] });
+    recent.push(picked);
+    if (recent.length > Math.min(4, cards.length - 1)) recent.shift();
+  }
+  return tasks;
+}
+
 export function splitSegments(value) {
   const text = String(value || "").replace(/\s+/g, " ").trim();
   if (!text) return [];
