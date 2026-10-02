@@ -19,7 +19,7 @@ jobs:
       - name: Refresh RSS passages
         run: node scripts/build-news.mjs
       - name: Verify practice logic
-        run: node --test tests/practice-core.test.mjs
+        run: node --test tests/practice-core.test.mjs tests/reader-core.test.mjs
       - name: Publish changed passages
         run: |
           git config user.name "github-actions[bot]"

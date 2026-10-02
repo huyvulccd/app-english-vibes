@@ -123,6 +123,39 @@ try {
   })()`);
   if (!persisted.chosenDue || !persisted.unknownDue || persisted.meaning !== "rời bỏ" || !persisted.recordingSize || persisted.shadowCount !== "0") throw new Error(`Persistence failed: ${JSON.stringify(persisted)}`);
 
+  let online;
+  if (process.env.PRACTICE_ONLINE === "1") {
+    const waitForOnline = async (prefix) => {
+      await waitUntil(() => evaluate(`(() => { const value = document.querySelector('#${prefix}-online-status')?.textContent || ''; return value.startsWith('Đã tải toàn bài:') || value.includes('Bạn có thể mở bài gốc'); })()`), 100000);
+      const status = await evaluate(`document.querySelector('#${prefix}-online-status').textContent`);
+      if (!status.startsWith("Đã tải toàn bài:")) throw new Error(`Online ${prefix}: ${status}`);
+      return status;
+    };
+    const bbc = news.items.find((item) => item.source === "BBC News");
+    const vietnamNews = news.items.find((item) => item.source === "Viet Nam News");
+    const vnexpress = news.items.find((item) => item.source === "VnExpress");
+    await evaluate(`(() => { document.querySelector('[data-view=shadowing]').click(); const select = document.querySelector('#shadow-article'); select.value = ${JSON.stringify(bbc.id)}; select.dispatchEvent(new Event('change')); document.querySelector('#shadow-fetch-current').click(); })()`);
+    const shadowStatus = await waitForOnline("shadow");
+    const shadowSegments = await evaluate("document.querySelectorAll('#shadow-segments button').length");
+    if (shadowSegments < 4 || !(await evaluate("document.querySelector('#shadow-article-meta').textContent.includes('Toàn bài tải online')"))) throw new Error(`Online shadowing article missing: ${shadowSegments}`);
+    const customBbcUrl = new URL(bbc.url);
+    customBbcUrl.searchParams.set("sayback_probe", "1");
+    await evaluate(`(() => { document.querySelector('#shadow-link').value = ${JSON.stringify(customBbcUrl.href)}; document.querySelector('#shadow-link-form').requestSubmit(); })()`);
+    const pastedLinkStatus = await waitForOnline("shadow");
+    if (!(await evaluate("document.querySelector('#shadow-article').value.startsWith('online-link-')"))) throw new Error("A pasted article URL was not added to the selector");
+    await evaluate(`(() => { document.querySelector('[data-view=dictation]').click(); document.querySelector('#dictation-link').value = ${JSON.stringify(vietnamNews.url)}; document.querySelector('#dictation-link-form').requestSubmit(); })()`);
+    const dictationStatus = await waitForOnline("dictation");
+    const dictationSegments = await evaluate("document.querySelectorAll('#dictation-segments button').length");
+    if (dictationSegments < 4) throw new Error(`Online dictation article missing: ${dictationSegments}`);
+    await evaluate(`(() => { document.querySelector('[data-view=translation]').click(); document.querySelector('[data-direction=vi-en]').click(); document.querySelector('#translation-link').value = ${JSON.stringify(vnexpress.url)}; document.querySelector('#translation-link-form').requestSubmit(); })()`);
+    const translationStatus = await waitForOnline("translation");
+    const translationLength = await evaluate("document.querySelector('#translation-source').textContent.length");
+    if (translationLength < 1000) throw new Error(`Online translation article too short: ${translationLength}`);
+    await evaluate("document.querySelector('[data-view=shadowing]').click(); document.querySelector('#shadow-random').click()");
+    const randomStatus = await waitForOnline("shadow");
+    online = { shadowStatus, shadowSegments, pastedLinkStatus, dictationStatus, dictationSegments, translationStatus, translationLength, randomStatus };
+  }
+
   if (process.env.PRACTICE_SCREENSHOTS === "1") {
     await send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
     await send("Page.reload", { ignoreCache: true });
@@ -134,7 +167,7 @@ try {
     await writeFile(path.join(root, ".practice-mobile.png"), Buffer.from(mobile.data, "base64"));
   }
   if (errors.length) throw new Error(`Browser exceptions: ${errors.join(" | ")}`);
-  console.log(JSON.stringify({ initial, reviewSaved: true, shadowRecordingRetained: true, dictation, translationPrompts: true, persisted, browserErrors: errors.length }, null, 2));
+  console.log(JSON.stringify({ initial, reviewSaved: true, shadowRecordingRetained: true, dictation, translationPrompts: true, persisted, online, browserErrors: errors.length }, null, 2));
 } finally {
   socket?.close();
   browser.kill();

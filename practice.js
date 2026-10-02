@@ -1,4 +1,5 @@
 import { LEVELS, STAGES, splitSegments, tokenizeWords, normalizeWord, compareWords, nextReview, translationPrompt } from "./practice-core.mjs";
+import { normalizeArticleUrl, articleSource, articleSelectors, cleanArticleText } from "./reader-core.mjs";
 
 const $ = (id) => document.getElementById(id);
 const DATA_URLS = ["./vocabulary-data.json", "./news-data.json"];
@@ -14,7 +15,7 @@ const state = {
   shadowArticle: null, shadowIndex: 0, shadowRecordings: new Map(),
   dictationArticle: null, dictationIndex: 0, dictationSpeed: 1, dictationAnswers: new Map(), dictationResults: null,
   translationDirection: "en-vi", translationArticle: null, translationDrafts: new Map(),
-  customArticles: {}, recorder: null, stream: null, recordPending: false, recordRequest: 0, vocabUrl: null,
+  customArticles: {}, onlineArticles: new Map(), onlineControllers: {}, recorder: null, stream: null, recordPending: false, recordRequest: 0, vocabUrl: null,
 };
 let toastTimer;
 function showToast(message) {
@@ -371,7 +372,7 @@ async function toggleRecording(kind, key) {
   finally { state.recordPending = false; }
 }
 
-function storyById(id) { return state.news.find((story) => story.id === id) || Object.values(state.customArticles).find((story) => story.id === id); }
+function storyById(id) { return state.customArticles[id] || state.news.find((story) => story.id === id); }
 function fillArticleSelect(selectId, language, currentId) {
   const select = $(selectId);
   select.replaceChildren();
@@ -390,11 +391,16 @@ function fillArticleSelect(selectId, language, currentId) {
     }
     select.append(group);
   }
-  const custom = Object.values(state.customArticles).find((item) => item.id === currentId);
-  if (custom && custom.language === language) {
-    const option = node("option", "", custom.title);
-    option.value = custom.id;
-    select.prepend(option);
+  const custom = Object.values(state.customArticles).filter((item) => item.language === language);
+  if (custom.length) {
+    const group = node("optgroup");
+    group.label = "Link và văn bản của bạn";
+    for (const article of [...custom].reverse()) {
+      const option = node("option", "", article.title);
+      option.value = article.id;
+      group.append(option);
+    }
+    select.prepend(group);
   }
   if (currentId && [...select.options].some((option) => option.value === currentId)) select.value = currentId;
   else select.selectedIndex = 0;
@@ -411,17 +417,148 @@ function renderArticleMeta(target, story) {
     target.append(link);
   } else target.append(node("span", "", story.source));
   if (story.date) target.append(node("span", "", ` · ${new Date(story.date).toLocaleDateString("vi-VN")}`));
-  if (story.url) target.append(node("span", "", " · Tiêu đề và tóm tắt RSS"));
+  if (story.url) target.append(node("span", "", story.fullText ? " · Toàn bài tải online" : " · Tiêu đề và tóm tắt RSS"));
 }
 function useCustomArticle(mode, language, textareaId) {
   const text = $(textareaId).value.replace(/\s+/g, " ").trim();
   if (text.length < 30) { showToast("Hãy dán ít nhất 30 ký tự để bắt đầu."); return; }
   const article = { id: `custom-${mode}-${Date.now()}`, title: text.slice(0, 58) + (text.length > 58 ? "…" : ""), text, language, source: "Văn bản của bạn", url: null, date: null };
-  state.customArticles[mode] = article;
+  cancelOnlineRequest(mode);
+  state.customArticles[article.id] = article;
   if (mode === "shadowing") { state.shadowArticle = article; state.shadowIndex = 0; renderShadowing(true); }
   else if (mode === "dictation") { state.dictationArticle = article; state.dictationIndex = 0; renderDictation(true); }
   else { state.translationArticle = article; renderTranslation(true); }
   showToast("Đã tạo bài luyện từ văn bản bạn dán.");
+}
+function onlinePrefix(mode) { return mode === "shadowing" ? "shadow" : mode; }
+function modeLanguage(mode) { return mode === "translation" && state.translationDirection === "vi-en" ? "vi" : "en"; }
+function modeArticle(mode) { return mode === "shadowing" ? state.shadowArticle : mode === "dictation" ? state.dictationArticle : state.translationArticle; }
+function setOnlineStatus(mode, message, busy = false) {
+  const prefix = onlinePrefix(mode);
+  const panel = $(`${prefix}-online`);
+  panel.setAttribute("aria-busy", String(busy));
+  panel.querySelectorAll("button").forEach((button) => { button.disabled = busy; });
+  if (!busy) $(`${prefix}-fetch-current`).disabled = !modeArticle(mode)?.url || Boolean(modeArticle(mode)?.fullText);
+  $(`${prefix}-online-status`).textContent = message;
+}
+function cancelOnlineRequest(mode) {
+  state.onlineControllers[mode]?.abort();
+  delete state.onlineControllers[mode];
+  setOnlineStatus(mode, "", false);
+}
+function updateOnlineForArticle(mode, article) {
+  if (state.onlineControllers[mode]) return;
+  setOnlineStatus(mode, article?.fullText ? "Đang dùng toàn bài đã tải online." : article?.url ? "Đang dùng tiêu đề và tóm tắt RSS. Bấm “Tải toàn bài đã chọn” để đọc thêm." : "Đang dùng văn bản bạn dán.");
+}
+function articleUrlKey(value) {
+  const url = new URL(value);
+  for (const key of [...url.searchParams.keys()]) if (/^(utm_|at_medium$|at_campaign$)/i.test(key)) url.searchParams.delete(key);
+  return url.href;
+}
+function resolveOnlineCandidate(value, language) {
+  if (typeof value !== "string") {
+    if (!value?.url) throw new Error("Bài này không có link. Hãy dán một link báo hoặc dùng văn bản của bạn.");
+    return value;
+  }
+  const url = normalizeArticleUrl(value);
+  const known = state.news.find((article) => article.language === language && articleUrlKey(article.url) === articleUrlKey(url));
+  if (known) return known;
+  const existing = Object.values(state.customArticles).find((article) => article.language === language && article.url && articleUrlKey(article.url) === articleUrlKey(url));
+  if (existing) return existing;
+  return { id: `link-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, url, language, source: articleSource(url), title: "", date: null };
+}
+async function readOnlineArticle(url, signal) {
+  let lastError = new Error("Không tìm thấy phần nội dung chính trong bài này.");
+  for (const selector of articleSelectors(url)) {
+    const combinedSignal = AbortSignal.any ? AbortSignal.any([signal, AbortSignal.timeout(30000)]) : signal;
+    const response = await fetch(`https://r.jina.ai/${url}`, {
+      headers: { Accept: "application/json", "X-Target-Selector": selector, "X-Respond-With": "text" },
+      signal: combinedSignal,
+    });
+    if (!response.ok) {
+      if (response.status === 422) { lastError = new Error("Không tìm thấy vùng bài viết ở nguồn này."); continue; }
+      if (response.status === 429) throw new Error("Dịch vụ đọc bài đang giới hạn lượt tải. Hãy thử lại sau ít phút.");
+      throw new Error(`Nguồn bài báo không trả nội dung (HTTP ${response.status}).`);
+    }
+    const payload = await response.json();
+    const data = payload.data || payload;
+    const body = cleanArticleText(data.text || data.content);
+    if (tokenizeWords(body).length < 35) { lastError = new Error("Bài này không có đủ văn bản để luyện tập."); continue; }
+    return { title: String(data.title || "").trim(), body, date: data.publishedTime || null };
+  }
+  throw lastError;
+}
+function activateOnlineArticle(mode, article) {
+  if (mode === "shadowing") {
+    if (state.recordPending || state.recorder?.state === "recording") stopRecording();
+    state.shadowArticle = article;
+    state.shadowIndex = 0;
+    renderShadowing(true);
+  } else if (mode === "dictation") {
+    storeDictationAnswer();
+    state.dictationArticle = article;
+    state.dictationIndex = 0;
+    renderDictation(true);
+  } else {
+    saveTranslationDraft();
+    state.translationArticle = article;
+    renderTranslation(true);
+  }
+}
+async function loadOnlineArticle(mode, input, random = false) {
+  cancelOnlineRequest(mode);
+  const language = modeLanguage(mode);
+  let candidates;
+  try {
+    candidates = random
+      ? shuffle(state.news.filter((article) => article.language === language && article.url && articleUrlKey(article.url) !== articleUrlKey(modeArticle(mode)?.url || "https://example.invalid/"))).slice(0, 4)
+      : [resolveOnlineCandidate(input, language)];
+    if (!candidates.length) throw new Error("Chưa có bài báo để chọn ngẫu nhiên.");
+  } catch (error) { setOnlineStatus(mode, error.message); return; }
+  const controller = new AbortController();
+  state.onlineControllers[mode] = controller;
+  let status = "";
+  setOnlineStatus(mode, random ? "Đang chọn và tải một bài báo mới…" : "Đang tải toàn bài từ link gốc…", true);
+  try {
+    let lastError;
+    for (let index = 0; index < candidates.length; index++) {
+      if (controller.signal.aborted) return;
+      const candidate = candidates[index];
+      if (random && index) setOnlineStatus(mode, `Bài trước chưa đọc được; đang thử bài ${index + 1}/${candidates.length}…`, true);
+      try {
+        const key = articleUrlKey(candidate.url);
+        let article = state.onlineArticles.get(key);
+        if (!article || article.language !== language) {
+          const result = await readOnlineArticle(candidate.url, controller.signal);
+          const title = candidate.title || result.title || articleSource(candidate.url);
+          article = { ...candidate, id: `online-${candidate.id}`, title, text: `${title}\n\n${result.body}`, source: candidate.source || articleSource(candidate.url), language, date: candidate.date || result.date, fullText: true };
+          state.onlineArticles.set(key, article);
+          state.customArticles[article.id] = article;
+        }
+        if (controller.signal.aborted) return;
+        activateOnlineArticle(mode, article);
+        status = `Đã tải toàn bài: ${article.title} (${tokenizeWords(article.text).length} từ).`;
+        return;
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        lastError = error;
+        if (!random || /giới hạn lượt tải/.test(error.message)) break;
+      }
+    }
+    throw lastError || new Error("Không tải được bài báo.");
+  } catch (error) {
+    if (!controller.signal.aborted) {
+      const detail = error.name === "TimeoutError" || error.name === "AbortError"
+        ? "Tải bài quá lâu."
+        : error instanceof TypeError ? "Không kết nối được với dịch vụ đọc bài." : error.message;
+      status = `${detail} Bạn có thể mở bài gốc và dán văn bản để học.`;
+    }
+  } finally {
+    if (state.onlineControllers[mode] === controller) {
+      delete state.onlineControllers[mode];
+      setOnlineStatus(mode, status, false);
+    }
+  }
 }
 function articleSegments(article) { return splitSegments(article?.text || ""); }
 function shadowKey(article, index) { return `${article?.id || "none"}:${index}`; }
@@ -454,6 +591,7 @@ function renderShadowing(rebuildSelect = false) {
   $("shadow-record-marker").textContent = recording ? "Đã ghi đoạn này" : "Chưa ghi";
   $("shadow-record-status").textContent = recording ? "Bản ghi đã được giữ trong phiên này. Nghe lại hoặc ghi lại." : "Bấm ghi âm và đọc đoạn phía trên.";
   $("shadow-record-count").textContent = String(state.shadowRecordings.size);
+  updateOnlineForArticle("shadowing", article);
 }
 function setShadowIndex(index) {
   if (state.recordPending || state.recorder?.state === "recording") stopRecording();
@@ -483,6 +621,7 @@ function renderDictation(rebuildSelect = false) {
   document.querySelectorAll(".speed-switch button").forEach((button) => button.classList.toggle("active", Number(button.dataset.speed) === state.dictationSpeed));
   $("dictation-work").hidden = false;
   $("dictation-results").hidden = true;
+  updateOnlineForArticle("dictation", article);
 }
 function setDictationIndex(index) {
   storeDictationAnswer();
@@ -585,6 +724,7 @@ function renderTranslation(rebuildSelect = false) {
   $("translation-answer").value = state.translationDrafts.get(translationKey()) || "";
   $("translation-answer-count").textContent = `${tokenizeWords($("translation-answer").value).length} từ`;
   $("translation-copy-status").textContent = "";
+  updateOnlineForArticle("translation", article);
 }
 async function copyTranslation() {
   const article = state.translationArticle;
@@ -654,6 +794,7 @@ $("add-word-form").addEventListener("submit", (event) => {
 });
 
 $("shadow-article").addEventListener("change", () => {
+  cancelOnlineRequest("shadowing");
   if (state.recordPending || state.recorder?.state === "recording") stopRecording();
   state.shadowArticle = storyById($("shadow-article").value);
   state.shadowIndex = 0;
@@ -670,6 +811,7 @@ $("shadow-speak").addEventListener("click", () => {
 $("shadow-record").addEventListener("click", () => { if (state.shadowArticle) toggleRecording("shadowing", shadowKey(state.shadowArticle, state.shadowIndex)); });
 
 $("dictation-article").addEventListener("change", () => {
+  cancelOnlineRequest("dictation");
   storeDictationAnswer();
   state.dictationArticle = storyById($("dictation-article").value);
   state.dictationIndex = 0;
@@ -701,12 +843,14 @@ $("save-unknown").addEventListener("click", saveUnknownWords);
 document.querySelector(".direction-switch").addEventListener("click", (event) => {
   const button = event.target.closest("[data-direction]");
   if (!button || button.dataset.direction === state.translationDirection) return;
+  cancelOnlineRequest("translation");
   saveTranslationDraft();
   state.translationDirection = button.dataset.direction;
   state.translationArticle = null;
   renderTranslation(true);
 });
 $("translation-article").addEventListener("change", () => {
+  cancelOnlineRequest("translation");
   saveTranslationDraft();
   state.translationArticle = storyById($("translation-article").value);
   renderTranslation();
@@ -717,6 +861,12 @@ $("translation-answer").addEventListener("input", () => {
   $("translation-answer-count").textContent = `${tokenizeWords($("translation-answer").value).length} từ`;
 });
 $("translation-copy").addEventListener("click", copyTranslation);
+for (const mode of ["shadowing", "dictation", "translation"]) {
+  const prefix = onlinePrefix(mode);
+  $(`${prefix}-fetch-current`).addEventListener("click", () => loadOnlineArticle(mode, modeArticle(mode)));
+  $(`${prefix}-random`).addEventListener("click", () => loadOnlineArticle(mode, null, true));
+  $(`${prefix}-link-form`).addEventListener("submit", (event) => { event.preventDefault(); loadOnlineArticle(mode, $(`${prefix}-link`).value); });
+}
 window.addEventListener("hashchange", () => switchView(location.hash.slice(1)));
 window.addEventListener("beforeunload", () => {
   if (state.recordPending || state.recorder?.state === "recording") stopRecording();

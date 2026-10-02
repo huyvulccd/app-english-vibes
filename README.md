@@ -19,19 +19,19 @@ Cấp độ từ lấy từ [CEFR-J Vocabulary Profile và Octanove C1/C2](https
 
 ### Shadowing
 
-Chọn tin tiếng Anh của BBC News, Viet Nam News hoặc VnExpress International, hoặc dán văn bản của mình. Trang chia tiêu đề và tóm tắt thành các đoạn theo dấu câu; từng đoạn có nút nghe mẫu, tốc độ nghe, ghi âm và phát lại. Bản ghi được giữ khi chuyển qua lại giữa các đoạn và bài trong phiên mở trang. Khi đóng hoặc tải lại trang, bản ghi Shadowing mất theo chủ ý.
+Chọn tin tiếng Anh của BBC News, Viet Nam News hoặc VnExpress International; bấm **Tải toàn bài đã chọn**, dán link, lấy bài ngẫu nhiên, hoặc dán văn bản của mình. Trang chia nội dung thành các đoạn theo dấu câu; từng đoạn có nút nghe mẫu, tốc độ nghe, ghi âm và phát lại. Bản ghi được giữ khi chuyển qua lại giữa các đoạn và bài trong phiên mở trang. Khi đóng hoặc tải lại trang, bản ghi Shadowing mất theo chủ ý.
 
 ### Chép chính tả
 
-Dùng cùng nguồn tin tiếng Anh hoặc văn bản tự dán. Nghe từng đoạn ở tốc độ 1× hoặc 0,75×, viết câu trả lời, chuyển đoạn mà không mất phần đã viết trong phiên. Khi kết thúc, trang đối chiếu từng từ, tô đỏ từ sai/thiếu, gạch từ viết thêm và hiển thị tỷ lệ chính xác toàn bài. Từ trong bài được liệt kê để người học tích chọn, nhập hoặc sửa nghĩa và đưa vào lịch ôn từ vựng. Bài chép đang làm chỉ được giữ trong phiên mở trang.
+Dùng cùng cách chọn bài tiếng Anh, gồm tải toàn bài online, dán link hoặc lấy ngẫu nhiên. Nghe từng đoạn ở tốc độ 1× hoặc 0,75×, viết câu trả lời, chuyển đoạn mà không mất phần đã viết trong phiên. Khi kết thúc, trang đối chiếu từng từ, tô đỏ từ sai/thiếu, gạch từ viết thêm và hiển thị tỷ lệ chính xác toàn bài. Từ trong bài được liệt kê để người học tích chọn, nhập hoặc sửa nghĩa và đưa vào lịch ôn từ vựng. Bài chép đang làm chỉ được giữ trong phiên mở trang.
 
 ### Dịch Anh ↔ Việt
 
-Chọn tin tiếng Anh hoặc tin tiếng Việt, hay dán văn bản riêng. Bài gốc và ô dịch hiển thị cạnh nhau trên màn hình rộng. Nút sao chép tạo prompt gồm bài gốc, bản dịch và yêu cầu chấm; người học dán vào AI họ chọn. Trang không gửi nội dung dịch đến dịch vụ AI. Bản nháp được giữ khi đổi bài hoặc đổi chiều dịch trong phiên mở trang.
+Chọn tin tiếng Anh hoặc tin tiếng Việt, tải toàn bài online, dán link, lấy bài ngẫu nhiên, hay dán văn bản riêng. Bài gốc và ô dịch hiển thị cạnh nhau trên màn hình rộng. Nút sao chép tạo prompt gồm bài gốc, bản dịch và yêu cầu chấm; người học dán vào AI họ chọn. Trang không gửi nội dung dịch đến dịch vụ AI. Bản nháp được giữ khi đổi bài hoặc đổi chiều dịch trong phiên mở trang.
 
 ## Nguồn tin và cập nhật
 
-`news-data.json` chứa **tiêu đề và tóm tắt RSS**, kèm tên nguồn, ngày và liên kết đến bài gốc. Đây là các đoạn ngắn để luyện tập; muốn học cả bài, mở liên kết nguồn rồi dán văn bản vào ô riêng. Dữ liệu từ [BBC News RSS](https://support.bbc.co.uk/platform/feeds/NewsFeeds.htm), [Viet Nam News RSS](https://vietnamnews.vn/rss), [VnExpress International RSS](https://e.vnexpress.net/rss) và [VnExpress RSS](https://vnexpress.net/rss). GitHub Actions chạy `scripts/build-news.mjs` hằng ngày để cập nhật tệp JSON và tự commit nếu có tin mới. Có thể chạy thủ công từ tab Actions hoặc tại máy:
+`news-data.json` chứa **tiêu đề và tóm tắt RSS**, kèm tên nguồn, ngày và liên kết đến bài gốc. Đây là danh sách để chọn nhanh; các nút tải toàn bài, dán link và lấy ngẫu nhiên dùng [Jina Reader API](https://jina.ai/reader/) để lấy văn bản chính trực tiếp vào trình duyệt khi người học yêu cầu. Văn bản toàn bài chỉ được giữ trong phiên mở trang, không xuất bản trong repository. Một số trang có thể chặn dịch vụ đọc bài hoặc thay đổi bố cục; khi đó có thể mở bài gốc và dán nội dung vào ô riêng. Dữ liệu RSS từ [BBC News](https://support.bbc.co.uk/platform/feeds/NewsFeeds.htm), [Viet Nam News](https://vietnamnews.vn/rss), [VnExpress International](https://e.vnexpress.net/rss) và [VnExpress](https://vnexpress.net/rss). GitHub Actions chạy `scripts/build-news.mjs` hằng ngày để cập nhật danh sách và tự commit nếu có tin mới. Có thể chạy thủ công từ tab Actions hoặc tại máy:
 
 ```powershell
 node scripts/build-news.mjs
@@ -43,7 +43,7 @@ Kho từ vựng được tạo trước rồi xuất bản như tệp tĩnh, kh�
 node scripts/build-vocabulary.mjs
 ```
 
-Script tải các danh sách CEFR-J/Octanove và các phần từ điển, giữ các nghĩa có độ tin cậy cao hoặc trung bình, rồi tạo `vocabulary-data.json`. Bản tải tạm được giữ trong `SOURCE/vocabulary-cache/` và không đưa lên Git. Hai tệp JSON nằm trong bộ nhớ đệm của service worker sau lần tải thành công, nên có thể mở lại khi mất mạng; tin mới và bài gốc cần mạng. Giọng đọc phụ thuộc các giọng cài trong trình duyệt/hệ điều hành; trình duyệt không có giọng phù hợp sẽ không phát mẫu.
+Script tải các danh sách CEFR-J/Octanove và các phần từ điển, giữ các nghĩa có độ tin cậy cao hoặc trung bình, rồi tạo `vocabulary-data.json`. Bản tải tạm được giữ trong `SOURCE/vocabulary-cache/` và không đưa lên Git. Hai tệp JSON nằm trong bộ nhớ đệm của service worker sau lần tải thành công, nên có thể mở lại khi mất mạng; tải toàn bài online và tin mới cần mạng. Link do người học dán được gửi tới Jina Reader để trích văn bản. Giọng đọc phụ thuộc các giọng cài trong trình duyệt/hệ điều hành; trình duyệt không có giọng phù hợp sẽ không phát mẫu.
 
 ## Giáo trình và phát âm cũ
 
@@ -68,10 +68,11 @@ node scripts/deploy_lesson_audio.mjs --execute
 ## Kiểm tra
 
 ```powershell
-node --test tests/practice-core.test.mjs tests/research-parser.test.mjs
+node --test tests/practice-core.test.mjs tests/reader-core.test.mjs tests/research-parser.test.mjs
 node scripts/check-practice-browser.mjs
+$env:PRACTICE_ONLINE='1'; node scripts/check-practice-browser.mjs
 node scripts/validate-study-assets.mjs
 node scripts/check-study-browser.mjs
 ```
 
-Hai bài kiểm tra trình duyệt dùng Chrome và tự mở một máy chủ tĩnh cục bộ. Bài kiểm tra trang mới đi qua bốn bước học từ, ghi âm và nghe lại, Shadowing, chép chính tả, lưu từ, hai prompt dịch. Bài kiểm tra giáo trình kiểm tra ảnh, tiến độ, câu trả lời, ghi chú và chuyển các cấp độ.
+Hai bài kiểm tra trình duyệt dùng Chrome và tự mở một máy chủ tĩnh cục bộ. Bài kiểm tra trang mới đi qua bốn bước học từ, ghi âm và nghe lại, Shadowing, chép chính tả, lưu từ, hai prompt dịch. `PRACTICE_ONLINE=1` còn kiểm tra tải bài BBC/Viet Nam News/VnExpress và lấy ngẫu nhiên qua mạng. Bài kiểm tra giáo trình kiểm tra ảnh, tiến độ, câu trả lời, ghi chú và chuyển các cấp độ.
