@@ -10,7 +10,7 @@ const chromePath = process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome
 const vocabulary = JSON.parse(await readFile(path.join(root, "vocabulary-data.json"), "utf8"));
 const news = JSON.parse(await readFile(path.join(root, "news-data.json"), "utf8"));
 const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".svg": "image/svg+xml", ".webmanifest": "application/manifest+json" };
-const server = createServer(async (request, response) => {
+const server = process.env.PRACTICE_ORIGIN ? null : createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
     const target = path.resolve(root, `.${pathname === "/" ? "/index.html" : pathname}`);
@@ -20,8 +20,8 @@ const server = createServer(async (request, response) => {
     response.end(content);
   } catch { response.writeHead(404); response.end("Not found"); }
 });
-await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const origin = `http://127.0.0.1:${server.address().port}`;
+if (server) await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+const origin = process.env.PRACTICE_ORIGIN?.replace(/\/$/, "") || `http://127.0.0.1:${server.address().port}`;
 const profile = await mkdtemp(path.join(os.tmpdir(), "sayback-practice-chrome-"));
 const browser = spawn(chromePath, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "about:blank"], { windowsHide: true, stdio: "ignore" });
 const errors = [];
@@ -111,7 +111,7 @@ try {
   await waitUntil(() => evaluate("window.copiedPrompt?.includes('EN: English test translation') && window.copiedPrompt?.includes('OUTPUT cần là')"));
 
   await send("Page.reload", { ignoreCache: true });
-  await waitUntil(() => evaluate("document.querySelector('#vocab-total')?.textContent.length > 2"));
+  await waitUntil(() => evaluate("performance.getEntriesByType('navigation')[0]?.type === 'reload' && document.readyState === 'complete' && document.querySelector('#vocab-total')?.textContent.length > 2"));
   const persisted = await evaluate(`(async () => {
     const reviews = JSON.parse(localStorage.getItem('sayback-vocabulary-reviews-v1') || '{}');
     const meanings = JSON.parse(localStorage.getItem('sayback-vocabulary-meanings-v1') || '{}');
@@ -141,5 +141,5 @@ try {
   await delay(500);
   const safeRoot = path.resolve(os.tmpdir()) + path.sep;
   if (path.resolve(profile).startsWith(safeRoot) && path.basename(profile).startsWith("sayback-practice-chrome-")) await rm(profile, { recursive: true, force: true }).catch(() => {});
-  await new Promise((resolve) => server.close(resolve));
+  if (server) await new Promise((resolve) => server.close(resolve));
 }
