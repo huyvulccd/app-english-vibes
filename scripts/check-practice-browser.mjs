@@ -60,31 +60,35 @@ try {
   };
   await send("Page.enable"); await send("Runtime.enable"); await send("Page.navigate", { url: `${origin}/index.html` });
   await waitUntil(() => evaluate(`document.querySelector('#vocab-total')?.textContent === '${vocabulary.cards.length.toLocaleString("vi-VN")}' && document.querySelector('#shadow-article')?.options.length > 20`));
-  const initial = await evaluate("({ count: document.querySelector('#vocab-total').textContent, news: document.querySelector('#shadow-article').options.length, levels: document.querySelectorAll('.level-switch button').length })");
+  const initial = await evaluate("({ count: document.querySelector('#vocab-total').textContent, news: document.querySelector('#shadow-article').options.length, levels: document.querySelectorAll('.level-switch button').length, voices: document.querySelector('#shadow-voice').options.length })");
   if (initial.levels !== 4 || initial.news !== news.items.filter((item) => item.language === "en").length) throw new Error(`Data mismatch: ${JSON.stringify(initial)}`);
 
   const chosen = vocabulary.cards.find((item) => item.word === "abolish");
   if (!chosen || chosen.level !== "B2") throw new Error("Missing B2 test word");
   const meaningOverride = "bãi bỏ kiểm thử";
+  const ipaOverride = "/əˈbɒlɪʃ/";
   const englishOverride = "to officially end a law or system\nto put an end to an established practice";
   await evaluate(`(() => { const search = document.querySelector('#word-search'); search.value = ${JSON.stringify(chosen.word)}; search.dispatchEvent(new Event('input', { bubbles: true })); document.querySelector('[data-word="${chosen.word}"]').click(); })()`);
-  await evaluate(`(() => { document.querySelector('#dialog-meaning').value = ${JSON.stringify(meaningOverride)}; document.querySelector('#dialog-english').value = ${JSON.stringify(englishOverride)}; document.querySelector('#dialog-save').click(); document.querySelector('#start-review').click(); })()`);
+  if (!(await evaluate(`document.querySelector('#dialog-ipa').value === ${JSON.stringify(chosen.ipa)} && !!document.querySelector('[data-speak-word="${chosen.word}"]')`))) throw new Error("Vocabulary IPA or speaker is missing");
+  await evaluate(`(() => { document.querySelector('#dialog-meaning').value = ${JSON.stringify(meaningOverride)}; document.querySelector('#dialog-ipa').value = ${JSON.stringify(ipaOverride)}; document.querySelector('#dialog-english').value = ${JSON.stringify(englishOverride)}; document.querySelector('#dialog-save').click(); document.querySelector('#start-review').click(); })()`);
   await waitUntil(() => evaluate("document.querySelector('#session-position')?.textContent.includes('/ 40')"));
   const meaningWords = [];
   let recordedChosen = false;
   for (let question = 0; question < 40; question++) {
-    const state = await evaluate("({ position: document.querySelector('#session-position').textContent, stage: document.querySelector('#session-stage').textContent, title: document.querySelector('#question-title').textContent, definitionVisible: !document.querySelector('#question-definitions').hidden, definitionCount: document.querySelectorAll('#question-definitions-list li').length })");
+    const state = await evaluate("({ position: document.querySelector('#session-position').textContent, stage: document.querySelector('#session-stage').textContent, title: document.querySelector('#question-title').textContent, ipa: document.querySelector('#question-ipa').textContent, ipaVisible: !document.querySelector('#question-ipa').hidden, speakerVisible: !document.querySelector('#question-word-speak').hidden, definitionVisible: !document.querySelector('#question-definitions').hidden, definitionCount: document.querySelectorAll('#question-definitions-list li').length })");
     if (Number(state.position.split(" /")[0]) !== question + 1) throw new Error(`Question order failed: ${JSON.stringify(state)}`);
     if (state.stage.includes("Chọn nghĩa")) {
       meaningWords.push(state.title);
       if (!state.definitionVisible || !state.definitionCount || state.definitionCount > 2) throw new Error(`Missing English definitions: ${JSON.stringify(state)}`);
+      if (!state.ipaVisible || !state.speakerVisible || state.ipa !== (state.title === chosen.word ? ipaOverride : vocabulary.cards.find((card) => card.word === state.title)?.ipa || "Chưa có IPA")) throw new Error(`Missing vocabulary pronunciation: ${JSON.stringify(state)}`);
       await evaluate(`(() => { const buttons = [...document.querySelectorAll('#choice-options button')]; (buttons.find((button) => button.textContent === ${JSON.stringify(state.title === chosen.word ? meaningOverride : "__none__")}) || buttons[0]).click(); document.querySelector('#next-question').click(); })()`);
     } else if (state.stage.includes("Nghe từ")) {
-      if (state.definitionVisible) throw new Error("Listening question revealed the definition before the answer");
+      if (state.definitionVisible || state.speakerVisible || state.ipaVisible) throw new Error("Listening question revealed the answer before playback");
       await evaluate("document.querySelector('#choice-options button').click(); document.querySelector('#next-question').click()");
     } else if (state.stage.includes("Viết từ")) {
       await evaluate(`(() => { document.querySelector('#spelling-input').value = ${JSON.stringify(state.title === meaningOverride ? chosen.word : "test")}; document.querySelector('#spelling-form').requestSubmit(); document.querySelector('#next-question').click(); })()`);
     } else if (state.stage.includes("Phát âm")) {
+      if (!state.ipaVisible || !state.speakerVisible) throw new Error(`Pronunciation controls missing: ${JSON.stringify(state)}`);
       if (state.title === chosen.word) {
         await evaluate("document.querySelector('#vocab-record').click()");
         await waitUntil(() => evaluate("document.querySelector('#vocab-record')?.textContent.includes('Dừng ghi')"));
@@ -103,11 +107,16 @@ try {
     const card = vocabulary.cards.find((item) => item.word === word);
     if (!card || card.tier < 2 || card.tier > 4 || card.word.length < 5) throw new Error(`Easy new word selected: ${word}`);
   }
-  const review = await evaluate(`({ due: JSON.parse(localStorage.getItem('sayback-vocabulary-reviews-v1'))?.[${JSON.stringify(chosen.word)}]?.due, meaning: JSON.parse(localStorage.getItem('sayback-vocabulary-meanings-v1'))?.[${JSON.stringify(chosen.word)}], definitions: JSON.parse(localStorage.getItem('sayback-vocabulary-definitions-v1'))?.[${JSON.stringify(chosen.word)}] })`);
-  if (!review.due || review.meaning !== meaningOverride || review.definitions?.length !== 2) throw new Error(`Vocabulary review not saved: ${JSON.stringify(review)}`);
+  const review = await evaluate(`({ due: JSON.parse(localStorage.getItem('sayback-vocabulary-reviews-v1'))?.[${JSON.stringify(chosen.word)}]?.due, meaning: JSON.parse(localStorage.getItem('sayback-vocabulary-meanings-v1'))?.[${JSON.stringify(chosen.word)}], ipa: JSON.parse(localStorage.getItem('sayback-vocabulary-ipa-v1'))?.[${JSON.stringify(chosen.word)}], definitions: JSON.parse(localStorage.getItem('sayback-vocabulary-definitions-v1'))?.[${JSON.stringify(chosen.word)}] })`);
+  if (!review.due || review.meaning !== meaningOverride || review.ipa !== ipaOverride || review.definitions?.length !== 2) throw new Error(`Vocabulary review not saved: ${JSON.stringify(review)}`);
 
   await evaluate("document.querySelector('[data-view=shadowing]').click()");
   await waitUntil(() => evaluate("document.querySelector('#shadow-text')?.textContent.length > 20"));
+  const shadowSpeech = await evaluate("({ words: document.querySelector('#shadow-text').textContent.trim().split(/\\s+/).length, voice: document.querySelector('#shadow-voice').selectedOptions[0]?.textContent, options: document.querySelector('#shadow-voice').options.length })");
+  if (shadowSpeech.words < 10 || !shadowSpeech.options) throw new Error(`Shadowing speech setup invalid: ${JSON.stringify(shadowSpeech)}`);
+  const selectedVoice = await evaluate("(() => { const select = document.querySelector('#shadow-voice'); if (select.options.length > 1) { select.selectedIndex = 1; select.dispatchEvent(new Event('change')); } return select.value; })()");
+  const utterance = await evaluate("(() => { const synth = window.speechSynthesis; const original = synth.speak; synth.speak = (speech) => { window.lastShadowUtterance = { text: speech.text, rate: speech.rate, voiceKey: speech.voice?.voiceURI || speech.voice?.name }; }; document.querySelector('#shadow-speak').click(); synth.speak = original; document.querySelector('#shadow-speak').click(); return window.lastShadowUtterance; })()");
+  if (!utterance || utterance.text !== await evaluate("document.querySelector('#shadow-text').textContent") || utterance.rate !== 1 || (selectedVoice && utterance.voiceKey !== selectedVoice)) throw new Error(`Shadowing did not speak one full passage with the selected voice: ${JSON.stringify(utterance)}`);
   await evaluate("document.querySelector('#shadow-record').click()");
   await waitUntil(() => evaluate("document.querySelector('#shadow-record')?.getAttribute('aria-label') === 'Dừng ghi âm'"));
   await delay(700);
@@ -140,14 +149,15 @@ try {
   const persisted = await evaluate(`(async () => {
     const reviews = JSON.parse(localStorage.getItem('sayback-vocabulary-reviews-v1') || '{}');
     const meanings = JSON.parse(localStorage.getItem('sayback-vocabulary-meanings-v1') || '{}');
+    const ipa = JSON.parse(localStorage.getItem('sayback-vocabulary-ipa-v1') || '{}');
     const definitions = JSON.parse(localStorage.getItem('sayback-vocabulary-definitions-v1') || '{}');
     const request = indexedDB.open('sayback-practice-recordings-v1');
     const db = await new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
     const transaction = db.transaction('vocabulary', 'readonly');
     const recording = await new Promise((resolve, reject) => { const item = transaction.objectStore('vocabulary').get(${JSON.stringify(chosen.word)}); item.onsuccess = () => resolve(item.result); item.onerror = () => reject(item.error); });
-    return { chosenDue: reviews[${JSON.stringify(chosen.word)}]?.due, unknownDue: reviews[${JSON.stringify(savedUnknownWord)}]?.due, unknownDefinition: definitions[${JSON.stringify(savedUnknownWord)}]?.[0], meaning: meanings[${JSON.stringify(chosen.word)}], definitions: definitions[${JSON.stringify(chosen.word)}], recordingSize: recording?.size || 0, shadowCount: document.querySelector('#shadow-record-count').textContent };
+    return { chosenDue: reviews[${JSON.stringify(chosen.word)}]?.due, unknownDue: reviews[${JSON.stringify(savedUnknownWord)}]?.due, unknownDefinition: definitions[${JSON.stringify(savedUnknownWord)}]?.[0], meaning: meanings[${JSON.stringify(chosen.word)}], ipa: ipa[${JSON.stringify(chosen.word)}], definitions: definitions[${JSON.stringify(chosen.word)}], voiceKey: localStorage.getItem('sayback-english-voice-v1'), recordingSize: recording?.size || 0, shadowCount: document.querySelector('#shadow-record-count').textContent };
   })()`);
-  if (!persisted.chosenDue || !persisted.unknownDue || persisted.unknownDefinition !== "an English meaning for this word" || persisted.meaning !== meaningOverride || persisted.definitions?.length !== 2 || !persisted.recordingSize || persisted.shadowCount !== "0") throw new Error(`Persistence failed: ${JSON.stringify(persisted)}`);
+  if (!persisted.chosenDue || !persisted.unknownDue || persisted.unknownDefinition !== "an English meaning for this word" || persisted.meaning !== meaningOverride || persisted.ipa !== ipaOverride || persisted.definitions?.length !== 2 || persisted.voiceKey !== selectedVoice || !persisted.recordingSize || persisted.shadowCount !== "0") throw new Error(`Persistence failed: ${JSON.stringify(persisted)}`);
 
   let online;
   if (process.env.PRACTICE_ONLINE === "1") {
@@ -198,9 +208,15 @@ try {
     await send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
     const vocabDesktop = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
     await writeFile(path.join(root, ".practice-vocab-desktop.png"), Buffer.from(vocabDesktop.data, "base64"));
+    await evaluate("document.querySelector('[data-view=shadowing]').click()");
+    const shadowDesktop = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+    await writeFile(path.join(root, ".practice-shadow-desktop.png"), Buffer.from(shadowDesktop.data, "base64"));
+    await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+    const shadowMobile = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+    await writeFile(path.join(root, ".practice-shadow-mobile.png"), Buffer.from(shadowMobile.data, "base64"));
   }
   if (errors.length) throw new Error(`Browser exceptions: ${errors.join(" | ")}`);
-  console.log(JSON.stringify({ initial, reviewSaved: true, shadowRecordingRetained: true, dictation, translationPrompts: true, persisted, online, browserErrors: errors.length }, null, 2));
+  console.log(JSON.stringify({ initial, reviewSaved: true, shadowSpeech, shadowRecordingRetained: true, dictation, translationPrompts: true, persisted, online, browserErrors: errors.length }, null, 2));
 } finally {
   socket?.close();
   browser.kill();

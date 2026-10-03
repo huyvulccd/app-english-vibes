@@ -70,6 +70,31 @@ export function splitSegments(value) {
   return parts.length ? parts : [text];
 }
 
+export function shadowSegments(value) {
+  const result = [];
+  for (const paragraph of String(value || "").split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean)) {
+    let current = "";
+    let count = 0;
+    for (const clause of splitSegments(paragraph)) {
+      const clauseWords = tokenizeWords(clause).length;
+      if (count >= 10 && count + clauseWords > 32) {
+        result.push(current);
+        current = "";
+        count = 0;
+      }
+      current = current ? `${current} ${clause}` : clause;
+      count += clauseWords;
+      if (count >= 10 && (/[.!?]$/.test(clause) || count >= 32)) {
+        result.push(current);
+        current = "";
+        count = 0;
+      }
+    }
+    if (current) result.push(current);
+  }
+  return result;
+}
+
 export function tokenizeWords(value) {
   return String(value || "").match(/[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu) || [];
 }

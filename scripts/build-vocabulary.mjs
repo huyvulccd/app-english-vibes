@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const cache = path.join(root, "SOURCE", "vocabulary-cache");
 const destination = path.join(root, "vocabulary-data.json");
+let ipaFallbacks = {};
+try { ipaFallbacks = JSON.parse(await readFile(path.join(root, "ipa-fallbacks.json"), "utf8")).items || {}; } catch { /* optional first build */ }
 const levels = ["B1", "B2", "C1", "C2"];
 const cefrRepo = "openlanguageprofiles/olp-en-cefrj";
 const dictRepo = "thichhoc-org/thichhoc-dict";
@@ -111,6 +113,7 @@ await Promise.all(Array.from({ length: 8 }, async () => {
       const wanted = targets.get(word);
       const candidate = {
         word, level: wanted.level, pos: posKey(entry.pos), meaning,
+        ipa: (typeof entry.pron === "string" ? entry.pron.trim() : "") || ipaFallbacks[word] || "",
         definition: definitions[0], definitions,
         confidence: entry.extra?.llm_confidence || "unknown",
         frequency: Number(entry.freq) || 0,
@@ -132,5 +135,6 @@ if (levels.some((level) => counts[level] < 100)) throw new Error(`Too few transl
 await writeFile(destination, JSON.stringify({ generatedAt: new Date().toISOString(), counts, sources: [
   { name: "CEFR-J Vocabulary Profile 1.5 and Octanove C1/C2", url: `https://github.com/${cefrRepo}`, revision: cefrSha },
   { name: "thichhoc-dict Anh–Việt", url: `https://github.com/${dictRepo}`, revision: dictSha, license: "CC BY-SA 4.0" },
+  { name: "Wiktionary English IPA fallback", url: "https://en.wiktionary.org/", license: "CC BY-SA 4.0" },
 ], cards }) + "\n", "utf8");
 console.log(`Wrote ${cards.length} cards: ${JSON.stringify(counts)}`);

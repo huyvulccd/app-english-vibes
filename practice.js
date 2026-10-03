@@ -1,16 +1,16 @@
-import { LEVELS, splitSegments, tokenizeWords, normalizeWord, compareWords, nextReview, translationPrompt, pickNewCards, buildReviewQueue } from "./practice-core.mjs";
+import { LEVELS, splitSegments, shadowSegments, tokenizeWords, normalizeWord, compareWords, nextReview, translationPrompt, pickNewCards, buildReviewQueue } from "./practice-core.mjs";
 import { normalizeArticleUrl, articleSource, articleSelectors, cleanArticleText } from "./reader-core.mjs";
 
 const $ = (id) => document.getElementById(id);
 const DATA_URLS = ["./vocabulary-data.json", "./news-data.json"];
 const KEYS = {
   reviews: "sayback-vocabulary-reviews-v1", custom: "sayback-vocabulary-custom-v1",
-  meanings: "sayback-vocabulary-meanings-v1", definitions: "sayback-vocabulary-definitions-v1", level: "sayback-vocabulary-level-v1",
+  meanings: "sayback-vocabulary-meanings-v1", definitions: "sayback-vocabulary-definitions-v1", ipa: "sayback-vocabulary-ipa-v1", level: "sayback-vocabulary-level-v1", voice: "sayback-english-voice-v1",
 };
 function readStore(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }
 function saveStore(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { showToast("Không lưu được tiến độ. Bộ nhớ trình duyệt có thể đã đầy."); return false; } }
 const state = {
-  vocabulary: [], news: [], reviews: readStore(KEYS.reviews, {}), custom: readStore(KEYS.custom, []), meanings: readStore(KEYS.meanings, {}), definitions: readStore(KEYS.definitions, {}),
+  vocabulary: [], news: [], reviews: readStore(KEYS.reviews, {}), custom: readStore(KEYS.custom, []), meanings: readStore(KEYS.meanings, {}), definitions: readStore(KEYS.definitions, {}), ipa: readStore(KEYS.ipa, {}), voiceKey: localStorage.getItem(KEYS.voice) || "",
   level: localStorage.getItem(KEYS.level) || "B2", view: "vocabulary", session: null, selectedWord: null,
   shadowArticle: null, shadowIndex: 0, shadowRecordings: new Map(),
   dictationArticle: null, dictationIndex: 0, dictationSpeed: 1, dictationAnswers: new Map(), dictationResults: null,
@@ -31,6 +31,14 @@ function node(tag, className, text) {
   if (text !== undefined) item.textContent = text;
   return item;
 }
+function speakerButton(word) {
+  const button = node("button", "word-audio speaker-button");
+  button.type = "button";
+  button.dataset.speakWord = word;
+  button.setAttribute("aria-label", `Nghe phát âm ${word}`);
+  button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Zm12-1a6 6 0 0 1 0 8m2-11a10 10 0 0 1 0 14" /></svg>';
+  return button;
+}
 function compactMeaning(value) { return String(value || "").split(";")[0].trim(); }
 function cardKey(card) { return normalizeWord(card.word); }
 function cardDefinitions(card) {
@@ -38,8 +46,9 @@ function cardDefinitions(card) {
   const values = Array.isArray(stored) ? stored : Array.isArray(card.definitions) ? card.definitions : card.definition ? [card.definition] : [];
   return values.map((value) => String(value || "").trim()).filter(Boolean).slice(0, 2);
 }
+function cardIpa(card) { return state.ipa[cardKey(card)] ?? card.ipa ?? ""; }
 function cardList() {
-  return [...state.vocabulary, ...state.custom].map((card) => ({ ...card, meaning: state.meanings[cardKey(card)] || card.meaning, definitions: cardDefinitions(card) }));
+  return [...state.vocabulary, ...state.custom].map((card) => ({ ...card, meaning: state.meanings[cardKey(card)] || card.meaning, definitions: cardDefinitions(card), ipa: cardIpa(card) }));
 }
 function findCard(word) { return cardList().find((card) => cardKey(card) === normalizeWord(word)); }
 function shuffle(items) {
@@ -50,18 +59,68 @@ function shuffle(items) {
   }
   return copy;
 }
-function say(text, rate = 1, language = "en-US") {
+function voiceKey(voice) { return voice.voiceURI || voice.name; }
+function englishVoices() {
+  if (!window.speechSynthesis) return [];
+  return speechSynthesis.getVoices().filter((voice) => /^en(?:-|$)/i.test(voice.lang)).sort((a, b) => {
+    const score = (voice) => Number(/natural|neural/i.test(voice.name)) * 12 + Number(/google/i.test(voice.name)) * 8 + Number(/microsoft/i.test(voice.name)) * 3 + Number(/^en-US$/i.test(voice.lang)) * 2 + Number(voice.default) * 0.1;
+    return score(b) - score(a) || a.name.localeCompare(b.name);
+  });
+}
+function renderVoiceOptions() {
+  const select = $("shadow-voice");
+  const voices = englishVoices();
+  select.replaceChildren();
+  if (!voices.length) {
+    const option = node("option", "", "Không tìm thấy giọng tiếng Anh");
+    option.value = "";
+    select.append(option);
+    select.disabled = true;
+    $("shadow-voice-status").textContent = "Trình duyệt chưa có giọng tiếng Anh. Hãy cài thêm giọng English trong hệ điều hành hoặc thử trình duyệt khác.";
+    return;
+  }
+  select.disabled = false;
+  for (const voice of voices) {
+    const option = node("option", "", `${voice.name} · ${voice.lang}`);
+    option.value = voiceKey(voice);
+    select.append(option);
+  }
+  select.value = voices.some((voice) => voiceKey(voice) === state.voiceKey) ? state.voiceKey : voiceKey(voices[0]);
+  $("shadow-voice-status").textContent = `Đọc cả đoạn bằng ${select.selectedOptions[0]?.textContent || "giọng tiếng Anh"}.`;
+}
+let activeSpeech = null;
+let activeSpeechButton = null;
+function stopSpeech() {
+  if (window.speechSynthesis) speechSynthesis.cancel();
+  if (activeSpeechButton) activeSpeechButton.textContent = "♪ Nghe mẫu";
+  activeSpeech = null;
+  activeSpeechButton = null;
+}
+function say(text, rate = 1, language = "en-US", button = null, preferredVoiceKey = "") {
   if (!window.speechSynthesis) { showToast("Trình duyệt này chưa có giọng đọc."); return; }
-  speechSynthesis.cancel();
+  if (button && activeSpeechButton === button) { stopSpeech(); return; }
+  stopSpeech();
+  const voices = englishVoices();
+  if (!voices.length) { showToast("Chưa có giọng tiếng Anh. Hãy cài thêm giọng English hoặc thử trình duyệt khác."); return; }
   const speech = new SpeechSynthesisUtterance(text);
-  speech.lang = language;
+  const voice = voices.find((item) => voiceKey(item) === preferredVoiceKey) || voices.find((item) => item.lang.toLowerCase() === language.toLowerCase()) || voices[0];
+  speech.voice = voice || null;
+  speech.lang = voice?.lang || language;
   speech.rate = rate;
-  const voices = speechSynthesis.getVoices();
-  speech.voice = voices.find((voice) => voice.lang.toLowerCase() === language.toLowerCase() && voice.localService) || voices.find((voice) => voice.lang.toLowerCase().startsWith(language.slice(0, 2).toLowerCase()) && voice.localService) || null;
+  activeSpeech = speech;
+  activeSpeechButton = button;
+  if (button) button.textContent = "■ Dừng đọc";
+  speech.onend = () => { if (activeSpeech === speech) stopSpeech(); };
+  speech.onerror = (event) => {
+    if (activeSpeech !== speech) return;
+    stopSpeech();
+    if (event.error !== "interrupted" && event.error !== "canceled") showToast("Không đọc được bằng giọng này. Hãy thử chọn giọng khác.");
+  };
   speechSynthesis.speak(speech);
 }
 function switchView(view) {
   if (!["vocabulary", "shadowing", "dictation", "translation"].includes(view)) return;
+  stopSpeech();
   if (state.recordPending || state.recorder?.state === "recording") stopRecording();
   state.view = view;
   document.querySelectorAll(".view").forEach((section) => { section.hidden = section.id !== `view-${view}`; });
@@ -101,14 +160,16 @@ function renderWordResults() {
     return;
   }
   for (const card of filtered) {
+    const entry = node("div", "word-entry");
     const button = node("button", "word-row");
     button.type = "button";
     button.dataset.word = card.word;
     const copy = node("span");
-    copy.append(node("strong", "", card.word), node("small", "", compactMeaning(card.meaning)), node("small", "word-definition", cardDefinitions(card).join(" · ") || "Thêm định nghĩa tiếng Anh"));
+    copy.append(node("strong", "", card.word), node("small", "word-ipa", cardIpa(card) || "Chưa có IPA"), node("small", "", compactMeaning(card.meaning)), node("small", "word-definition", cardDefinitions(card).join(" · ") || "Thêm định nghĩa tiếng Anh"));
     const status = state.reviews[cardKey(card)] ? "Đang ôn" : card.pos || "Xem";
     button.append(copy, node("em", "", status));
-    list.append(button);
+    entry.append(button, speakerButton(card.word));
+    list.append(entry);
   }
 }
 function updateVocabulary() { renderOverview(); renderWordResults(); }
@@ -164,7 +225,11 @@ async function renderQuestion() {
   $("choice-options").hidden = !["meaning", "listening"].includes(stage);
   $("spelling-form").hidden = stage !== "spelling";
   $("pronunciation-tools").hidden = stage !== "pronunciation";
-  $("question-speak").hidden = stage === "meaning" || stage === "spelling";
+  $("question-speak").hidden = stage !== "listening";
+  $("question-word-speak").hidden = !["meaning", "pronunciation"].includes(stage);
+  $("question-word-speak").setAttribute("aria-label", `Nghe phát âm ${card.word}`);
+  $("question-ipa").hidden = !["meaning", "pronunciation"].includes(stage);
+  $("question-ipa").textContent = cardIpa(card) || "Chưa có IPA";
   const definitions = cardDefinitions(card);
   const definitionBox = $("question-definitions");
   definitionBox.hidden = stage === "listening" || !definitions.length;
@@ -220,6 +285,7 @@ function checkAnswer(answer) {
   feedback.classList.toggle("incorrect", !correct);
   const message = correct ? `Đúng rồi. ${card.word} — ${card.meaning}` : `Chưa đúng. Đáp án: ${correctAnswer}. ${card.word} — ${card.meaning}`;
   feedback.replaceChildren(node("span", "", message));
+  if (cardIpa(card)) feedback.append(node("span", "feedback-ipa", `IPA: ${cardIpa(card)}`));
   const definitions = cardDefinitions(card);
   if (definitions.length) feedback.append(node("span", "feedback-definition", `English: ${definitions.join(" · ")}`));
   if (stage !== "spelling") $("choice-options").querySelectorAll("button").forEach((button) => {
@@ -260,6 +326,7 @@ function openWord(word) {
   state.selectedWord = card.word;
   $("dialog-level").textContent = `${card.level} · ${card.pos || "TỪ VỰNG"}`;
   $("dialog-word").textContent = card.word;
+  $("dialog-ipa").value = cardIpa(card);
   $("dialog-english").value = cardDefinitions(card).join("\n");
   $("dialog-meaning").value = card.meaning;
   $("word-dialog").showModal();
@@ -267,12 +334,15 @@ function openWord(word) {
 function saveWordDialog() {
   const card = findCard(state.selectedWord);
   const meaning = $("dialog-meaning").value.trim();
+  const ipa = $("dialog-ipa").value.trim();
   const definitions = $("dialog-english").value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
   if (!card || !meaning) { showToast("Hãy nhập nghĩa tiếng Việt."); return; }
   if (!definitions.length || definitions.length > 2) { showToast("Hãy nhập một hoặc hai nghĩa / câu định nghĩa tiếng Anh."); return; }
   state.meanings[cardKey(card)] = meaning;
+  state.ipa[cardKey(card)] = ipa;
   state.definitions[cardKey(card)] = definitions;
   saveStore(KEYS.meanings, state.meanings);
+  saveStore(KEYS.ipa, state.ipa);
   saveStore(KEYS.definitions, state.definitions);
   const previous = state.reviews[cardKey(card)];
   state.reviews[cardKey(card)] = { ...(previous || {}), due: Date.now() - 1 };
@@ -281,17 +351,19 @@ function saveWordDialog() {
   updateVocabulary();
   showToast(`Đã đưa “${card.word}” vào lượt ôn.`);
 }
-function addCustomWord(word, meaning, level = state.level, source = "custom", definitions = []) {
+function addCustomWord(word, meaning, level = state.level, source = "custom", definitions = [], ipa = "") {
   const cleanWord = normalizeWord(word);
   if (!/^[a-z][a-z'-]{0,35}$/i.test(cleanWord) || !meaning.trim()) return false;
   const cleanDefinitions = definitions.map((value) => String(value || "").trim()).filter(Boolean).slice(0, 2);
   const existing = findCard(cleanWord);
   if (existing) state.meanings[cleanWord] = meaning.trim();
-  else state.custom.push({ word: cleanWord, meaning: meaning.trim(), level: LEVELS.includes(level) ? level : "B2", pos: "word", definition: cleanDefinitions[0] || "", definitions: cleanDefinitions, source });
+  else state.custom.push({ word: cleanWord, meaning: meaning.trim(), ipa: ipa.trim(), level: LEVELS.includes(level) ? level : "B2", pos: "word", definition: cleanDefinitions[0] || "", definitions: cleanDefinitions, source });
   if (cleanDefinitions.length) state.definitions[cleanWord] = cleanDefinitions;
+  if (ipa.trim()) state.ipa[cleanWord] = ipa.trim();
   saveStore(KEYS.custom, state.custom);
   saveStore(KEYS.meanings, state.meanings);
   if (cleanDefinitions.length) saveStore(KEYS.definitions, state.definitions);
+  if (ipa.trim()) saveStore(KEYS.ipa, state.ipa);
   state.reviews[cleanWord] = { ...(state.reviews[cleanWord] || {}), due: Date.now() - 1 };
   saveStore(KEYS.reviews, state.reviews);
   return true;
@@ -444,6 +516,7 @@ function useCustomArticle(mode, language, textareaId) {
   if (text.length < 30) { showToast("Hãy dán ít nhất 30 ký tự để bắt đầu."); return; }
   const article = { id: `custom-${mode}-${Date.now()}`, title: text.slice(0, 58) + (text.length > 58 ? "…" : ""), text, language, source: "Văn bản của bạn", url: null, date: null };
   cancelOnlineRequest(mode);
+  if (mode === "shadowing") stopSpeech();
   state.customArticles[article.id] = article;
   if (mode === "shadowing") { state.shadowArticle = article; state.shadowIndex = 0; renderShadowing(true); }
   else if (mode === "dictation") { state.dictationArticle = article; state.dictationIndex = 0; renderDictation(true); }
@@ -510,6 +583,7 @@ async function readOnlineArticle(url, signal) {
 }
 function activateOnlineArticle(mode, article) {
   if (mode === "shadowing") {
+    stopSpeech();
     if (state.recordPending || state.recorder?.state === "recording") stopRecording();
     state.shadowArticle = article;
     state.shadowIndex = 0;
@@ -581,6 +655,7 @@ async function loadOnlineArticle(mode, input, random = false) {
   }
 }
 function articleSegments(article) { return splitSegments(article?.text || ""); }
+function shadowArticleSegments(article) { return shadowSegments(article?.text || ""); }
 function shadowKey(article, index) { return `${article?.id || "none"}:${index}`; }
 function renderSegments(container, segments, index, statusFor) {
   container.replaceChildren();
@@ -596,7 +671,7 @@ function renderShadowing(rebuildSelect = false) {
   if (rebuildSelect) state.shadowArticle = fillArticleSelect("shadow-article", "en", state.shadowArticle?.id);
   const article = state.shadowArticle;
   if (!article) return;
-  const segments = articleSegments(article);
+  const segments = shadowArticleSegments(article);
   state.shadowIndex = Math.min(Math.max(0, state.shadowIndex), segments.length - 1);
   renderArticleMeta($("shadow-article-meta"), article);
   renderSegments($("shadow-segments"), segments, state.shadowIndex, (index) => state.shadowRecordings.has(shadowKey(article, index)));
@@ -614,6 +689,7 @@ function renderShadowing(rebuildSelect = false) {
   updateOnlineForArticle("shadowing", article);
 }
 function setShadowIndex(index) {
+  stopSpeech();
   if (state.recordPending || state.recorder?.state === "recording") stopRecording();
   state.shadowIndex = index;
   renderShadowing();
@@ -804,13 +880,19 @@ $("spelling-form").addEventListener("submit", (event) => {
 });
 $("next-question").addEventListener("click", nextStage);
 $("question-speak").addEventListener("click", () => { const card = currentCard(); if (card) say(card.word, 0.9); });
+$("question-word-speak").addEventListener("click", () => { const card = currentCard(); if (card) say(card.word, 0.9); });
 $("vocab-record").addEventListener("click", () => { const card = currentCard(); if (card) toggleRecording("vocabulary", card.word); });
 document.querySelector(".rating-row").addEventListener("click", (event) => {
   const button = event.target.closest("[data-rating]");
   if (button) { if (state.recordPending || state.recorder?.state === "recording") stopRecording(); completeCard(button.dataset.rating); }
 });
 $("word-search").addEventListener("input", renderWordResults);
-$("word-results").addEventListener("click", (event) => { const button = event.target.closest("[data-word]"); if (button) openWord(button.dataset.word); });
+$("word-results").addEventListener("click", (event) => {
+  const speaker = event.target.closest("[data-speak-word]");
+  if (speaker) { say(speaker.dataset.speakWord, 0.9); return; }
+  const button = event.target.closest("[data-word]");
+  if (button) openWord(button.dataset.word);
+});
 $("dialog-speak").addEventListener("click", () => { if (state.selectedWord) say(state.selectedWord, 0.9); });
 $("dialog-save").addEventListener("click", saveWordDialog);
 $("add-word-form").addEventListener("submit", (event) => {
@@ -818,7 +900,7 @@ $("add-word-form").addEventListener("submit", (event) => {
   const word = $("custom-word").value, meaning = $("custom-meaning").value;
   const definitions = $("custom-definition").value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
   if (!definitions.length || definitions.length > 2) { showToast("Hãy nhập một hoặc hai định nghĩa tiếng Anh."); return; }
-  if (!addCustomWord(word, meaning, $("custom-level").value, "custom", definitions)) { showToast("Chỉ nhập một từ tiếng Anh và một nghĩa tiếng Việt."); return; }
+  if (!addCustomWord(word, meaning, $("custom-level").value, "custom", definitions, $("custom-ipa").value)) { showToast("Chỉ nhập một từ tiếng Anh và một nghĩa tiếng Việt."); return; }
   $("add-word-form").reset();
   $("custom-level").value = state.level;
   updateVocabulary();
@@ -826,6 +908,7 @@ $("add-word-form").addEventListener("submit", (event) => {
 });
 
 $("shadow-article").addEventListener("change", () => {
+  stopSpeech();
   cancelOnlineRequest("shadowing");
   if (state.recordPending || state.recorder?.state === "recording") stopRecording();
   state.shadowArticle = storyById($("shadow-article").value);
@@ -837,8 +920,14 @@ $("shadow-segments").addEventListener("click", (event) => { const button = event
 $("shadow-prev").addEventListener("click", () => setShadowIndex(state.shadowIndex - 1));
 $("shadow-next").addEventListener("click", () => setShadowIndex(state.shadowIndex + 1));
 $("shadow-speak").addEventListener("click", () => {
-  const text = articleSegments(state.shadowArticle)[state.shadowIndex];
-  if (text) say(text, Number($("shadow-speed").value));
+  const text = shadowArticleSegments(state.shadowArticle)[state.shadowIndex];
+  if (text) say(text, Number($("shadow-speed").value), "en-US", $("shadow-speak"), $("shadow-voice").value);
+});
+$("shadow-voice").addEventListener("change", () => {
+  stopSpeech();
+  state.voiceKey = $("shadow-voice").value;
+  localStorage.setItem(KEYS.voice, state.voiceKey);
+  renderVoiceOptions();
 });
 $("shadow-record").addEventListener("click", () => { if (state.shadowArticle) toggleRecording("shadowing", shadowKey(state.shadowArticle, state.shadowIndex)); });
 
@@ -922,6 +1011,8 @@ function migrateLegacyWords() {
 }
 async function init() {
   try {
+    renderVoiceOptions();
+    if (window.speechSynthesis) speechSynthesis.addEventListener("voiceschanged", renderVoiceOptions);
     const responses = await Promise.all(DATA_URLS.map((url) => fetch(url)));
     if (responses.some((response) => !response.ok)) throw new Error("Không tải được dữ liệu học. Hãy tải lại trang.");
     const [vocabulary, news] = await Promise.all(responses.map((response) => response.json()));

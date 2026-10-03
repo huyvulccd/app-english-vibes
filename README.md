@@ -13,13 +13,13 @@ Kho có 3.947 từ: B1 (1.125), B2 (1.444), C1 (710), C2 (668). Mặc định m�
 3. Nhìn nghĩa tiếng Việt và viết lại từ tiếng Anh.
 4. Nghe mẫu, ghi âm, nghe lại và tự đánh giá phát âm.
 
-Buổi học xáo trộn nhiều từ trước khi chuyển sang dạng câu hỏi tiếp theo; cùng một từ không xuất hiện ngay ở câu kế. Từ trả lời sai được hẹn ôn lại sau một phút. Từ trả lời đúng được hẹn theo khoảng ngày tăng dần, tùy mức tự đánh giá. Người học có thể tìm từ, sửa nghĩa tiếng Việt và định nghĩa tiếng Anh, thêm từ riêng. Tiến độ, nghĩa và định nghĩa đã sửa lưu trong `localStorage`; bản ghi âm từ vựng lưu trong `IndexedDB` của trình duyệt.
+Buổi học xáo trộn nhiều từ trước khi chuyển sang dạng câu hỏi tiếp theo; cùng một từ không xuất hiện ngay ở câu kế. Từ trả lời sai được hẹn ôn lại sau một phút. Từ trả lời đúng được hẹn theo khoảng ngày tăng dần, tùy mức tự đánh giá. Nút loa và IPA xuất hiện cạnh từ khi chọn nghĩa, lúc luyện phát âm và trong kho từ. Có IPA sẵn cho 3.840/3.947 từ; các từ còn thiếu hiện “Chưa có IPA” để người học bổ sung trong chi tiết từ. Người học cũng có thể sửa nghĩa tiếng Việt và định nghĩa tiếng Anh, thêm từ riêng. Tiến độ, nghĩa, IPA và định nghĩa đã sửa lưu trong `localStorage`; bản ghi âm từ vựng lưu trong `IndexedDB` của trình duyệt.
 
 Cấp độ từ lấy từ [CEFR-J Vocabulary Profile và Octanove C1/C2](https://github.com/openlanguageprofiles/olp-en-cefrj). Nghĩa tiếng Việt lấy từ [thichhoc-dict](https://github.com/thichhoc-org/thichhoc-dict). Nghĩa do AI tạo ở nguồn, vì vậy nên kiểm tra và sửa trước khi học. Thông tin giấy phép và ghi nguồn ở [`VOCABULARY-LICENSE.md`](VOCABULARY-LICENSE.md).
 
 ### Shadowing
 
-Chọn tin tiếng Anh của BBC News, Viet Nam News hoặc VnExpress International; bấm **Tải toàn bài đã chọn**, dán link, lấy bài ngẫu nhiên, hoặc dán văn bản của mình. Trang chia nội dung thành các đoạn theo dấu câu; từng đoạn có nút nghe mẫu, tốc độ nghe, ghi âm và phát lại. Bản ghi được giữ khi chuyển qua lại giữa các đoạn và bài trong phiên mở trang. Khi đóng hoặc tải lại trang, bản ghi Shadowing mất theo chủ ý.
+Chọn tin tiếng Anh của BBC News, Viet Nam News hoặc VnExpress International; bấm **Tải toàn bài đã chọn**, dán link, lấy bài ngẫu nhiên, hoặc dán văn bản của mình. Trang ghép các mệnh đề ngắn thành đoạn đủ dài để đọc liền mạch; từng đoạn có nút nghe mẫu, tốc độ nghe, lựa chọn giọng tiếng Anh, ghi âm và phát lại. Danh sách giọng tùy thuộc trình duyệt và hệ điều hành. Bản ghi được giữ khi chuyển qua lại giữa các đoạn và bài trong phiên mở trang. Khi đóng hoặc tải lại trang, bản ghi Shadowing mất theo chủ ý.
 
 ### Chép chính tả
 
@@ -41,9 +41,11 @@ Kho từ vựng được tạo trước rồi xuất bản như tệp tĩnh, kh�
 
 ```powershell
 node scripts/build-vocabulary.mjs
+node scripts/build-ipa-fallbacks.mjs
+node scripts/build-vocabulary.mjs
 ```
 
-Script tải các danh sách CEFR-J/Octanove và các phần từ điển, giữ các nghĩa có độ tin cậy cao hoặc trung bình, rồi tạo `vocabulary-data.json`. Bản tải tạm được giữ trong `SOURCE/vocabulary-cache/` và không đưa lên Git. Hai tệp JSON nằm trong bộ nhớ đệm của service worker sau lần tải thành công, nên có thể mở lại khi mất mạng; tải toàn bài online và tin mới cần mạng. Link do người học dán được gửi tới Jina Reader để trích văn bản. Giọng đọc phụ thuộc các giọng cài trong trình duyệt/hệ điều hành; trình duyệt không có giọng phù hợp sẽ không phát mẫu.
+Script tải các danh sách CEFR-J/Octanove và các phần từ điển, giữ các nghĩa có độ tin cậy cao hoặc trung bình, rồi tạo `vocabulary-data.json`. Lệnh IPA bổ sung phiên âm còn thiếu từ Wiktionary rồi tạo lại kho từ. Bản tải tạm được giữ trong `SOURCE/vocabulary-cache/` và không đưa lên Git. Các tệp JSON nằm trong bộ nhớ đệm của service worker sau lần tải thành công, nên có thể mở lại khi mất mạng; tải toàn bài online và tin mới cần mạng. Link do người học dán được gửi tới Jina Reader để trích văn bản. Giọng đọc phụ thuộc các giọng cài trong trình duyệt/hệ điều hành; trình duyệt không có giọng phù hợp sẽ không phát mẫu.
 
 ## Giáo trình và phát âm cũ
 

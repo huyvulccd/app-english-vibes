@@ -1,10 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { splitSegments, compareWords, nextReview, translationPrompt, pickNewCards, buildReviewQueue, STAGES } from "../practice-core.mjs";
+import { splitSegments, shadowSegments, compareWords, nextReview, translationPrompt, pickNewCards, buildReviewQueue, STAGES } from "../practice-core.mjs";
 
 test("splits news passages at clauses while keeping numbers together", () => {
   assert.deepEqual(splitSegments("The figure rose to 10,000 people, according to the report. It may rise again!"), [
     "The figure rose to 10,000 people,", "according to the report.", "It may rise again!",
+  ]);
+});
+
+test("shadowing joins short clauses into speakable passages", () => {
+  const text = "The council met today, after several weeks of debate, and voted to reopen the library. Residents welcomed the decision, but asked for longer opening hours.\n\nThe museum will stay closed this month.";
+  assert.deepEqual(shadowSegments(text), [
+    "The council met today, after several weeks of debate, and voted to reopen the library.",
+    "Residents welcomed the decision, but asked for longer opening hours.",
+    "The museum will stay closed this month.",
   ]);
 });
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = "sayback-v8";
+const CACHE_NAME = "sayback-v9";
 const CORE = [
   "./",
   "./index.html",
